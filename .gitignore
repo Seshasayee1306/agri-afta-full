@@ -1,0 +1,21 @@
+*.env
+.env
+.env.local
+backend/.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# macOS
+.DS_Store
+
+# IDEs
+.vscode/
+.idea/
+# Node modules
+node_modules/
+frontend/node_modules/
+**/node_modules/

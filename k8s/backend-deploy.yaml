@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agri-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: agri-backend
+  template:
+    metadata:
+      labels:
+        app: agri-backend
+    spec:
+      containers:
+        - name: backend
+          image: YOUR_DOCKERHUB/agri-backend:latest
+          ports:
+            - containerPort: 8000
+          env:
+            - name: GROQ_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: groq-secret
+                  key: key

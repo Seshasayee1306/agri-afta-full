@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agri-frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: agri-frontend
+  template:
+    metadata:
+      labels:
+        app: agri-frontend
+    spec:
+      containers:
+        - name: frontend
+          image: YOUR_DOCKERHUB/agri-frontend:latest
+          ports:
+            - containerPort: 3000

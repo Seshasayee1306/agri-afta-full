@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+pandas
+numpy
+xgboost
+pytorch-tabnet
+torch
+shap
+joblib
+prometheus-fastapi-instrumentator
+groq
+flask
+flask-cors
