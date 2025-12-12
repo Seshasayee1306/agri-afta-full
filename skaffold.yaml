@@ -1,6 +1,5 @@
 apiVersion: skaffold/v4beta6
 kind: Config
-
 metadata:
   name: agri-afta
 
@@ -18,12 +17,4 @@ build:
 deploy:
   kubectl:
     manifests:
-      - k8s/backend-deploy.yaml
-      - k8s/backend-svc.yaml
-      - k8s/frontend-deploy.yaml
-      - k8s/frontend-svc.yaml
-      - k8s/prometheus-configmap.yaml
-      - k8s/prometheus-deploy.yaml
-      - k8s/grafana-deploy.yaml
-      - k8s/mlflow-deploy.yaml
-      - k8s/retrain-cronjob.yaml
+      - k8s/*.yaml
