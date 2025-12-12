@@ -1,0 +1,15 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: afta-retrain
+spec:
+  schedule: "0 3 * * *"   # runs every day at 3 AM
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: retrain
+              image: YOUR_DOCKERHUB/agri-backend:latest
+              command: ["python", "retrain/retrain.py"]
+          restartPolicy: OnFailure

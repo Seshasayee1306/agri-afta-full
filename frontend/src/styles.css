@@ -1,0 +1,4 @@
+.container { padding: 20px; font-family: Arial, sans-serif; }
+.form-grid label { display: block; margin: 6px 0; }
+button { margin-top: 12px; padding: 8px 12px; }
+.result { margin-top: 20px; background:#f7f7f7; padding: 10px; border-radius:6px; }
