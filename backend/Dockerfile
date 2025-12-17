@@ -21,7 +21,10 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Copy fed_afta module from root
 COPY fed_afta ./fed_afta
 
-# Copy backend code
+# Copy dataset
+COPY dataset ./dataset
+
+# Copy backend code (includes retrain/ directory)
 COPY backend .
 
 EXPOSE 8000
