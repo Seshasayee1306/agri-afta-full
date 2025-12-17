@@ -24,6 +24,8 @@ COPY fed_afta ./fed_afta
 # Copy dataset
 COPY dataset ./dataset
 
+COPY retrain ./retrain
+
 # Copy backend code (includes retrain/ directory)
 COPY backend .
 
