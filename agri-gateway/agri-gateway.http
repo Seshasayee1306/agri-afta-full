@@ -1,0 +1,6 @@
+@agri_gateway_HostAddress = http://localhost:5212
+
+GET {{agri_gateway_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
