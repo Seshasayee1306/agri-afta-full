@@ -14,6 +14,6 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: YOUR_DOCKERHUB/agri-frontend:latest
+          image: sesha1306/agri-frontend:latest
           ports:
             - containerPort: 3000

@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: YOUR_DOCKERHUB/agri-backend:latest
+          image: sesha1306/agri-backend:latest
           ports:
             - containerPort: 8000
           env:
