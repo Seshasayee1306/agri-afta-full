@@ -6,8 +6,8 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 
 # ✅ Relative imports (work in local + Docker)
-from .model_loader import ModelWrapper
-from .explain import shap_contribs, tabnet_masks, llm_explain
+from backend.model_loader import ModelWrapper
+from backend.explain import shap_contribs, tabnet_masks, llm_explain
 
 # -----------------------------------------------------
 # FLASK APP
