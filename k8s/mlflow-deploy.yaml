@@ -14,7 +14,12 @@ spec:
     spec:
       containers:
       - name: mlflow
-        image: mlfloworg/mlflow:latest
+        image: ghcr.io/mlflow/mlflow:latest
+        command: ["mlflow"]
+        args:
+          - server
+          - "--host=0.0.0.0"
+          - "--port=5000"
         ports:
         - containerPort: 5000
 ---
