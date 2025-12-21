@@ -1,34 +1,41 @@
 FROM python:3.10-slim
 
+# -----------------------------
+# Set working directory
+# -----------------------------
 WORKDIR /app
 
-# Copy requirements first
-COPY backend/requirements.txt .
-
+# -----------------------------
 # Install dependencies
+# -----------------------------
+COPY backend/requirements.txt ./requirements.txt
+
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu && \
-    rm -rf /root/.cache/pip && \
     pip install --no-cache-dir flask flask-cors python-dotenv groq && \
-    rm -rf /root/.cache/pip && \
     pip install --no-cache-dir numpy pandas scikit-learn xgboost && \
-    rm -rf /root/.cache/pip && \
     pip install --no-cache-dir pytorch-tabnet shap joblib scipy && \
-    rm -rf /root/.cache/pip && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+    rm -rf /root/.cache/pip
 
-# Copy fed_afta module from root
-COPY fed_afta ./fed_afta
+# -----------------------------
+# Copy application code (CRITICAL)
+# -----------------------------
+COPY backend /app/backend
+COPY fed_afta /app/fed_afta
+COPY dataset /app/dataset
+COPY retrain /app/retrain
 
-# Copy dataset
-COPY dataset ./dataset
+# -----------------------------
+# Ensure backend is a package
+# -----------------------------
+RUN test -f /app/backend/__init__.py
 
-COPY retrain ./retrain
-
-# Copy backend code (includes retrain/ directory)
-COPY backend .
-
+# -----------------------------
+# Expose port
+# -----------------------------
 EXPOSE 8000
 
+# -----------------------------
+# ✅ Correct module execution
+# -----------------------------
 CMD ["python", "-m", "backend.app"]
