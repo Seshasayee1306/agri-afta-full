@@ -3,18 +3,46 @@ kind: CronJob
 metadata:
   name: afta-retrain
 spec:
-  schedule: "0 3 * * *"   # runs every day at 3 AM
+  schedule: "0 3 * * *"
+  concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 3
+
   jobTemplate:
     spec:
+      backoffLimit: 2
       template:
         spec:
+          serviceAccountName: retrain-sa
+          restartPolicy: OnFailure
+
           containers:
             - name: retrain
               image: sesha1306/agri-backend:latest
-              command: ["python", "retrain/retrain.py"]
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  python retrain/retrain.py && \
+                  echo "Retrain completed, restarting backend..." && \
+                  kubectl rollout restart deployment agri-backend
+
               env:
                 - name: PYTHONUNBUFFERED
                   value: "1"
-          restartPolicy: OnFailure
+
+              volumeMounts:
+                - name: agri-data
+                  mountPath: /app/dataset
+                - name: retrain-state
+                  mountPath: /app/retrain
+
+          volumes:
+            - name: agri-data
+              hostPath:
+                path: /dataset
+                type: DirectoryOrCreate
+            - name: retrain-state
+              hostPath:
+                path: /retrain
+                type: DirectoryOrCreate

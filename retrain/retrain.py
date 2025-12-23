@@ -3,55 +3,111 @@ import sys
 import pandas as pd
 import joblib
 from datetime import datetime
+import json
 
-# Add parent directories to path
+# -----------------------------------------------------
+# RETRAIN CONTROL CONFIG
+# -----------------------------------------------------
+STATE_FILE = os.path.join(os.path.dirname(__file__), "retrain_state.json")
+MIN_NEW_ROWS = 50   # retrain only if at least these many new rows exist
+
+# -----------------------------------------------------
+# PATH FIXES (for Docker / K8s execution)
+# -----------------------------------------------------
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from fed_afta.models import TabNetEncoder
 from fed_afta.server import Server
 
+# -----------------------------------------------------
+# STATE MANAGEMENT
+# -----------------------------------------------------
+def load_state():
+    if not os.path.exists(STATE_FILE):
+        return {"last_trained_rows": 0}
+    with open(STATE_FILE, "r") as f:
+        return json.load(f)
+
+def save_state(row_count):
+    with open(STATE_FILE, "w") as f:
+        json.dump({"last_trained_rows": row_count}, f)
+
+# -----------------------------------------------------
+# MAIN RETRAIN FUNCTION
+# -----------------------------------------------------
 def run_retrain():
-    print(f"[{datetime.now()}] Starting federated retraining...")
-    
+    print(f"[{datetime.now()}] Starting federated retraining job")
+
     # Paths relative to /app in Docker
     dataset_path = os.path.join(os.path.dirname(__file__), "../dataset/irrigation_dataset.csv")
     model_output_path = os.path.join(os.path.dirname(__file__), "../final_model.pkl")
-    
+
     print(f"Loading dataset from: {dataset_path}")
     df = pd.read_csv(dataset_path)
-    
+
+    # -------------------------------------------------
+    # RETRAIN GATING LOGIC
+    # -------------------------------------------------
+    state = load_state()
+    current_rows = len(df)
+    new_rows = current_rows - state["last_trained_rows"]
+
+    print(f"Current rows: {current_rows}")
+    print(f"Rows since last retrain: {new_rows}")
+
+    if new_rows < MIN_NEW_ROWS:
+        print("Not enough new data. Skipping retraining.")
+        return
+
+    # -------------------------------------------------
+    # MODEL CONFIG
+    # -------------------------------------------------
     features = [
         "soil_moisture", "temperature", "soil_humidity", "hour", "dayofyear",
-        "air_temp", "air_humidity", "rainfall", "ph", "nitrogen", 
+        "air_temp", "air_humidity", "rainfall", "ph", "nitrogen",
         "phosphorus", "potassium"
     ]
-    
+
     config = {
-        'features': features,
-        'target': 'needs_water',
-        'active_k': 500
+        "features": features,
+        "target": "needs_water",
+        "active_k": 500
     }
-    
+
+    # -------------------------------------------------
+    # FEDERATED TRAINING
+    # -------------------------------------------------
     print("Initializing TabNet encoder...")
-    encoder = TabNetEncoder(device='cpu')
-    
+    encoder = TabNetEncoder(device="cpu")
+
     print("Initializing federated server...")
     srv = Server(df, encoder, config)
-    
-    print("Registering clients...")
+
+    print("Registering federated clients...")
     client_dfs = {
         cid: df[df.client_id == cid].reset_index(drop=True)
         for cid in sorted(df.client_id.unique())
     }
     srv.register_clients(client_dfs)
-    
-    print(f"Running 3 federated learning rounds...")
-    srv.run_rounds(rounds=3)
-    
-    print(f"Model saved to: {model_output_path}")
-    print(f"[{datetime.now()}] Retraining completed successfully!")
 
+    print("Running 3 federated learning rounds...")
+    srv.run_rounds(rounds=3)
+
+    # -------------------------------------------------
+    # SAVE MODEL + UPDATE STATE
+    # -------------------------------------------------
+    print(f"Saving trained model to: {model_output_path}")
+    joblib.dump(srv.global_model, model_output_path)
+
+    save_state(current_rows)
+
+    print(f"[{datetime.now()}] Retraining completed successfully")
+    print("Retrain state updated")
+
+# -----------------------------------------------------
+# ENTRYPOINT (K8s Job compatible)
+# -----------------------------------------------------
 if __name__ == "__main__":
     try:
         run_retrain()

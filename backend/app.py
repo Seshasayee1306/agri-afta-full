@@ -8,6 +8,7 @@ from flask_cors import CORS
 # ✅ Relative imports (work in local + Docker)
 from backend.model_loader import ModelWrapper
 from backend.explain import shap_contribs, tabnet_masks, llm_explain
+from backend.data_logger import append_labeled_row
 
 # -----------------------------------------------------
 # FLASK APP
@@ -118,6 +119,27 @@ def explain():
         "tabnet_masks": masks.tolist(),
         "llm_explanation": explanation
     })
+
+
+@app.route("/label", methods=["POST"])
+def label_data():
+    data = request.get_json(silent=True)
+
+    if not data:
+        return jsonify({"error": "Invalid JSON"}), 400
+
+    features = data.get("features")
+    label = data.get("label")
+
+    if features is None or label is None:
+        return jsonify({"error": "Missing features or label"}), 400
+
+    try:
+        append_labeled_row(features, label)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+    return jsonify({"status": "Data appended successfully"})
 
 # -----------------------------------------------------
 # HEALTH CHECK (K8s / Docker friendly)

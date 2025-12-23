@@ -12,7 +12,7 @@ export default function TestLLM() {
     const arr = features.split(",").map((x) => parseFloat(x.trim()));
 
     try {
-      const res = await fetch("http://127.0.0.1:8001/explain", {
+      const res = await fetch("http://127.0.0.1:8000/explain", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ features: arr }),
