@@ -6,30 +6,30 @@ spec:
   schedule: "0 3 * * *"
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 3
-  failedJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 5
 
   jobTemplate:
     spec:
-      backoffLimit: 2
+      backoffLimit: 0   # fail fast, no retries
       template:
         spec:
           serviceAccountName: retrain-sa
-          restartPolicy: OnFailure
+          restartPolicy: Never
 
           containers:
             - name: retrain
               image: sesha1306/agri-backend:latest
               command:
-                - /bin/sh
-                - -c
-                - |
-                  python retrain/retrain.py && \
-                  echo "Retrain completed, restarting backend..." && \
-                  kubectl rollout restart deployment agri-backend
+                - python
+                - retrain/retrain.py
 
               env:
                 - name: PYTHONUNBUFFERED
                   value: "1"
+                - name: DATASET_PATH
+                  value: /app/dataset/irrigation_dataset.csv
+                - name: MODEL_OUTPUT_PATH
+                  value: /app/retrain/final_model.pkl
 
               volumeMounts:
                 - name: agri-data
