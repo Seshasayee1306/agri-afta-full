@@ -156,3 +156,9 @@ class SimpleTorchEncoder(nn.Module):
         # Load with strict=False so missing keys won't fail
         self.network_.load_state_dict(net_sd, strict=False)
         self.classifier.load_state_dict(cls_sd, strict=False)
+
+# -----------------------------------------------------
+# Backward compatibility alias
+# -----------------------------------------------------
+TabNetEncoder = SimpleTorchEncoder
+
