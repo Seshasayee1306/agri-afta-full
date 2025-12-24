@@ -1,0 +1,26 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: afta-retrain-debug-manual
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      serviceAccountName: retrain-sa
+
+      containers:
+        - name: retrain
+          image: sesha1306/agri-backend:latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "PWD=$(pwd)"
+              ls -R /app
+              echo "DATASET CONTENTS:"
+              ls -l /app/dataset || true
+              echo "RETRAIN SCRIPT:"
+              ls -l /app/retrain || true
+              echo "STARTING RETRAIN"
+              python retrain/retrain.py

@@ -17,7 +17,7 @@ MIN_NEW_ROWS = 50   # retrain only if at least these many new rows exist
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
-from fed_afta.models import TabNetEncoder
+from fed_afta.models import SimpleTorchEncoder
 from fed_afta.server import Server
 
 # -----------------------------------------------------
@@ -40,8 +40,14 @@ def run_retrain():
     print(f"[{datetime.now()}] Starting federated retraining job")
 
     # Paths relative to /app in Docker
-    dataset_path = os.path.join(os.path.dirname(__file__), "../dataset/irrigation_dataset.csv")
-    model_output_path = os.path.join(os.path.dirname(__file__), "../final_model.pkl")
+    dataset_path = os.path.join(
+        os.path.dirname(__file__),
+        "../dataset/irrigation_dataset.csv"
+    )
+    model_output_path = os.path.join(
+        os.path.dirname(__file__),
+        "../final_model.pkl"
+    )
 
     print(f"Loading dataset from: {dataset_path}")
     df = pd.read_csv(dataset_path)
@@ -64,9 +70,18 @@ def run_retrain():
     # MODEL CONFIG
     # -------------------------------------------------
     features = [
-        "soil_moisture", "temperature", "soil_humidity", "hour", "dayofyear",
-        "air_temp", "air_humidity", "rainfall", "ph", "nitrogen",
-        "phosphorus", "potassium"
+        "soil_moisture",
+        "temperature",
+        "soil_humidity",
+        "hour",
+        "dayofyear",
+        "air_temp",
+        "air_humidity",
+        "rainfall",
+        "ph",
+        "nitrogen",
+        "phosphorus",
+        "potassium"
     ]
 
     config = {
@@ -78,8 +93,12 @@ def run_retrain():
     # -------------------------------------------------
     # FEDERATED TRAINING
     # -------------------------------------------------
-    print("Initializing TabNet encoder...")
-    encoder = TabNetEncoder(device="cpu")
+    print("Initializing SimpleTorch encoder...")
+    encoder = SimpleTorchEncoder(
+        input_dim=len(features),
+        embedding_dim=16,
+        device="cpu"
+    )
 
     print("Initializing federated server...")
     srv = Server(df, encoder, config)
