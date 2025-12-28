@@ -21,7 +21,7 @@ spec:
               image: sesha1306/agri-backend:latest
               command:
                 - python
-                - retrain/retrain.py
+                - python /app/retrain/retrain.py
 
               env:
                 - name: PYTHONUNBUFFERED
