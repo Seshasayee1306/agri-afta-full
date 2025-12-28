@@ -10,7 +10,7 @@ spec:
 
   jobTemplate:
     spec:
-      backoffLimit: 0   # fail fast, no retries
+      backoffLimit: 0
       template:
         spec:
           serviceAccountName: retrain-sa
@@ -26,24 +26,3 @@ spec:
               env:
                 - name: PYTHONUNBUFFERED
                   value: "1"
-                - name: DATASET_PATH
-                  value: /app/dataset/irrigation_dataset.csv
-                - name: MODEL_OUTPUT_PATH
-                  value: /app/retrain/final_model.pkl
-
-              volumeMounts:
-                - name: agri-data
-                  mountPath: /app/dataset
-                - name: retrain-state
-                  mountPath: /app/retrain_state
-
-          volumes:
-            - name: agri-data
-              hostPath:
-                path: /dataset
-                type: DirectoryOrCreate
-            - name: retrain-state
-              hostPath:
-                path: /retrain_state
-                type: DirectoryOrCreate
-
