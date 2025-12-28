@@ -54,6 +54,29 @@ def run_retrain():
     df = pd.read_csv(dataset_path)
 
     # -------------------------------------------------
+    # DATA SANITY CHECKS (CRITICAL)
+    # -------------------------------------------------
+    target_col = "needs_water"
+
+# Drop rows where target is missing
+    initial_rows = len(df)
+    df = df.dropna(subset=[target_col])
+
+# Force target to binary int {0,1}
+    df[target_col] = df[target_col].astype(int)
+
+# Ensure valid label range
+    df = df[df[target_col].isin([0, 1])]
+
+    print(f"Sanitized dataset:")
+    print(f" - Rows before: {initial_rows}")
+    print(f" - Rows after : {len(df)}")
+
+    if len(df) == 0:
+        raise ValueError("Dataset empty after sanitization — check labels")
+
+
+    # -------------------------------------------------
     # RETRAIN GATING LOGIC
     # -------------------------------------------------
     state = load_state()
