@@ -8,7 +8,8 @@ import json
 # -----------------------------------------------------
 # RETRAIN CONTROL CONFIG
 # -----------------------------------------------------
-STATE_FILE = os.path.join(os.path.dirname(__file__), "retrain_state.json")
+STATE_FILE = "/app/retrain_state/retrain_state.json"
+
 MIN_NEW_ROWS = 50   # retrain only if at least these many new rows exist
 
 # -----------------------------------------------------
