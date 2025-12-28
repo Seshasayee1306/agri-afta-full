@@ -35,7 +35,7 @@ spec:
                 - name: agri-data
                   mountPath: /app/dataset
                 - name: retrain-state
-                  mountPath: /app/retrain
+                  mountPath: /app/retrain_state
 
           volumes:
             - name: agri-data
@@ -44,6 +44,6 @@ spec:
                 type: DirectoryOrCreate
             - name: retrain-state
               hostPath:
-                path: /retrain
+                path: /retrain_state
                 type: DirectoryOrCreate
 
