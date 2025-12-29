@@ -6,17 +6,21 @@ export default function TestLLM() {
   const [features, setFeatures] = useState("");
   const [result, setResult] = useState(null);
 
+  // ✅ ONLY CHANGE: use Kubernetes service DNS
+  const API_BASE = "http://agri-backend-svc:8000";
+
   const handleExplain = async () => {
     if (!features) return;
 
     const arr = features.split(",").map((x) => parseFloat(x.trim()));
 
     try {
-      const res = await fetch("http://127.0.0.1:8000/explain", {
+      const res = await fetch(`${API_BASE}/explain`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ features: arr }),
       });
+
       const data = await res.json();
       setResult(data);
     } catch (err) {
@@ -77,7 +81,7 @@ export default function TestLLM() {
             🧠 LLM Explanation Result
           </h3>
 
-          {/* JSON preview box */}
+          {/* JSON preview */}
           <div
             style={{
               background: "#f1f5f9",

@@ -9,6 +9,9 @@ export default function Predict() {
   const [statusMsg, setStatusMsg] = useState("");
   const [lastFeatureArray, setLastFeatureArray] = useState(null);
 
+  // ✅ ONLY CHANGE: backend service DNS
+  const API_BASE = "http://agri-backend-svc:8000";
+
   const handlePredict = async () => {
     if (!features) return;
 
@@ -16,11 +19,12 @@ export default function Predict() {
     const arr = features.split(",").map((x) => parseFloat(x.trim()));
 
     try {
-      const res = await fetch("http://127.0.0.1:8000/predict", {
+      const res = await fetch(`${API_BASE}/predict`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ features: arr }),
       });
+
       const data = await res.json();
       setResult(data);
 
@@ -34,7 +38,7 @@ export default function Predict() {
     }
   };
 
-  // ✅ ADDED FUNCTION — SAVE LABELED DATA
+  // ✅ SAVE LABELED DATA
   const submitForTraining = async () => {
     if (!lastFeatureArray) {
       setStatusMsg("No prediction data available");
@@ -52,7 +56,8 @@ export default function Predict() {
     };
 
     try {
-      const res = await fetch("http://127.0.0.1:8001/label", {
+      // ⚠️ assuming label endpoint runs on same backend
+      const res = await fetch(`http://agri-backend-svc:8001/label`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -71,6 +76,7 @@ export default function Predict() {
   return (
     <div>
       <h2>Predict Water Need</h2>
+
       <input
         type="text"
         placeholder="Enter features comma separated"
@@ -78,6 +84,7 @@ export default function Predict() {
         onChange={(e) => setFeatures(e.target.value)}
         style={{ width: "400px", marginRight: "10px" }}
       />
+
       <button onClick={handlePredict}>Predict</button>
 
       {result && (
@@ -85,7 +92,6 @@ export default function Predict() {
           <h3>Prediction Result:</h3>
           <pre>{JSON.stringify(result, null, 2)}</pre>
 
-          {/* ✅ ADDED LABEL CONFIRMATION SECTION */}
           <div style={{ marginTop: "15px" }}>
             <h4>Confirm Actual Outcome (for future training)</h4>
 
@@ -108,7 +114,6 @@ export default function Predict() {
         </div>
       )}
 
-      {/* ✅ STATUS MESSAGE */}
       {statusMsg && <p style={{ marginTop: "10px" }}>{statusMsg}</p>}
     </div>
   );
