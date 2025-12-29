@@ -92,7 +92,9 @@ def explain():
     emb, proba, pred_class = model.get_embeddings_and_pred(X)
 
     # 3. SHAP contributions
-    shap_vals = shap_contribs(model.head, emb)
+    if shap_vals is None:
+    shap_vals = "SHAP explanation unavailable for this model"
+
 
     # 4. TabNet masks (fallback safe)
     masks = tabnet_masks(model.encoder, X)

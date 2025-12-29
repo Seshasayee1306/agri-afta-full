@@ -30,8 +30,16 @@ def shap_contribs(head, embeddings):
     head: XGBoost Booster object
     embeddings: numpy array of embeddings
     """
-    explainer = shap.TreeExplainer(head)
-    vals = explainer.shap_values(embeddings)
+    def shap_contribs(head, embeddings):
+    try:
+        explainer = shap.TreeExplainer(head)
+        vals = explainer.shap_values(embeddings)
+        if isinstance(vals, list):
+            return vals[1]
+        return vals
+    except Exception as e:
+        return None
+
 
     if isinstance(vals, list) and len(vals) > 1:
         return vals[1]  # For binary classification, return class 1 contributions
