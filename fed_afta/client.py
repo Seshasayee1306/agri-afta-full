@@ -111,7 +111,8 @@ class Client:
             'objective': 'binary:logistic',
             'max_depth': 6,
             'eta': 0.05,
-            'verbosity': 0
+            'verbosity': 0,
+            "base_score": 0.5
         }
 
         bst = xgb.train(params, dtrain, num_boost_round=200)

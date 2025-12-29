@@ -20,4 +20,8 @@ def uncertainty_sampling_proba(probs, k):
         return idx
 
 def evaluate_preds(y_true, y_pred):
-    return float(accuracy_score(y_true, y_pred))
+    mask = np.isfinite(y_true) & np.isfinite(y_pred)
+    if mask.sum() == 0:
+        return 0.0
+    return float(accuracy_score(y_true[mask], y_pred[mask]))
+
