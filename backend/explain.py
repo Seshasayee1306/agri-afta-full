@@ -27,30 +27,40 @@ if GROQ_API_KEY:
 def shap_contribs(head, embeddings):
     """
     Compute SHAP values safely for XGBoost models.
-    Handles malformed base_score like '[3.7E-1]'.
+    Fixes malformed base_score like '[3.7E-1]' at config level.
     """
 
-    # --- Normalize XGBoost base_score ---
-    booster = None
+    import xgboost as xgb
+
+    # 1. Always work with raw Booster
     if hasattr(head, "get_booster"):
         booster = head.get_booster()
     else:
         booster = head
 
+    # 2. Rebuild clean booster (critical step)
+    raw = booster.save_raw()
+    clean_booster = xgb.Booster()
+    clean_booster.load_model(raw)
+
+    # 3. Fix malformed base_score in serialized config
     try:
-        attrs = booster.attributes()
-        base_score = attrs.get("base_score", None)
-
-        if isinstance(base_score, str):
-            # handles "[3.7E-1]" or "3.7E-1"
-            cleaned = base_score.strip("[]")
-            float(cleaned)  # validate
-            booster.set_attr(base_score=cleaned)
+        config = clean_booster.save_config()
+        if '"base_score":"' in config:
+            config = config.replace(
+                '"base_score":"[3.7E-1]"',
+                '"base_score":"0.37"'
+            )
+            config = config.replace(
+                '"base_score":"3.7E-1"',
+                '"base_score":"0.37"'
+            )
+        clean_booster.load_config(config)
     except Exception as e:
-        print("SHAP base_score cleanup skipped:", e)
+        print("⚠️ SHAP base_score config fix skipped:", e)
 
-    # --- SHAP explain ---
-    explainer = shap.TreeExplainer(booster)
+    # 4. SHAP explanation using CLEAN booster
+    explainer = shap.TreeExplainer(clean_booster)
     vals = explainer.shap_values(embeddings)
 
     if isinstance(vals, list):
