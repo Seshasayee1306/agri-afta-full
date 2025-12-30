@@ -53,6 +53,25 @@ def run_retrain():
     print(f"Loading dataset from: {dataset_path}")
     df = pd.read_csv(dataset_path)
 
+
+    # -------------------------------------------------
+    # FEATURE SANITIZATION (CRITICAL)
+    # -------------------------------------------------
+    feature_cols = config["features"]
+
+    # Drop rows with NaN or inf in features
+    before_feat = len(df)
+    df = df.replace([np.inf, -np.inf], np.nan)
+    df = df.dropna(subset=feature_cols)
+
+    print(f"Feature sanitization:")
+    print(f" - Rows before: {before_feat}")
+    print(f" - Rows after : {len(df)}")
+
+    if len(df) == 0:
+        raise ValueError("Dataset empty after feature sanitization")
+
+
     # -------------------------------------------------
     # DATA SANITY CHECKS (CRITICAL)
     # -------------------------------------------------

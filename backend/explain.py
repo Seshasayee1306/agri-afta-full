@@ -30,30 +30,12 @@ def shap_contribs(head, embeddings):
     head: XGBoost Booster object
     embeddings: numpy array of embeddings
     """
+    explainer = shap.TreeExplainer(head)
+    vals = explainer.shap_values(embeddings)
 
-    # 🔧 FIX 1: sanitize base_score BEFORE SHAP reads it
-    try:
-        raw_base = head.attr("base_score")
-        if raw_base:
-            # "[3.7E-1]" → 0.37
-            clean_base = float(raw_base.strip("[]"))
-            head.set_attr(base_score=str(clean_base))
-    except Exception as e:
-        print("⚠️ base_score sanitization skipped:", e)
-
-    try:
-        explainer = shap.TreeExplainer(head)
-        vals = explainer.shap_values(embeddings)
-
-        # Binary classification → class 1
-        if isinstance(vals, list):
-            return vals[1]
-
-        return vals
-
-    except Exception as e:
-        print("⚠️ SHAP failed:", e)
-        return None
+    if isinstance(vals, list) and len(vals) > 1:
+        return vals[1]  # For binary classification, return class 1 contributions
+    return vals
 
 # ------------------------------------------------------
 # 2. TABNET MASKS (optional / fallback)
@@ -64,7 +46,7 @@ def tabnet_masks(encoder, X):
     """
     try:
         return np.zeros(X.shape[1])
-    except Exception:
+    except:
         return np.zeros(len(X))
 
 # ------------------------------------------------------
@@ -78,11 +60,6 @@ def llm_explain(raw_row: Dict, shap_vals, masks, pred):
     masks: TabNet masks
     pred: integer prediction (0/1)
     """
-
-    # 🔧 FIX 2: guard if SHAP failed
-    if shap_vals is None:
-        shap_vals = np.zeros(len(raw_row))
-
     prediction_text = "Needs water" if pred == 1 else "No irrigation needed"
 
     prompt = f"""
@@ -107,7 +84,7 @@ Use simple non-technical language.
             response = client.chat.completions.create(
                 model="llama-3.1-8b-instant",
                 messages=[{"role": "user", "content": prompt}],
-                max_tokens=500
+                max_tokens=500  # increased to avoid cutoff
             )
             return response.choices[0].message.content
 
