@@ -25,26 +25,37 @@ if GROQ_API_KEY:
 # 1. SHAP CONTRIBUTIONS
 # ------------------------------------------------------
 def shap_contribs(head, embeddings):
-    # ---- FIX base_score if it is malformed ----
+    """
+    Compute SHAP values safely for XGBoost models.
+    Handles malformed base_score like '[3.7E-1]'.
+    """
+
+    # --- Normalize XGBoost base_score ---
+    booster = None
+    if hasattr(head, "get_booster"):
+        booster = head.get_booster()
+    else:
+        booster = head
+
     try:
-        booster = head.get_booster() if hasattr(head, "get_booster") else head
-        params = booster.attributes()
+        attrs = booster.attributes()
+        base_score = attrs.get("base_score", None)
 
-        if "base_score" in params:
-            val = params["base_score"]
-            if isinstance(val, str) and val.startswith("["):
-                clean = float(val.strip("[]"))
-                booster.set_attr(base_score=str(clean))
+        if isinstance(base_score, str):
+            # handles "[3.7E-1]" or "3.7E-1"
+            cleaned = base_score.strip("[]")
+            float(cleaned)  # validate
+            booster.set_attr(base_score=cleaned)
     except Exception as e:
-        print("Warning: base_score cleanup failed:", e)
+        print("SHAP base_score cleanup skipped:", e)
 
+    # --- SHAP explain ---
     explainer = shap.TreeExplainer(booster)
     vals = explainer.shap_values(embeddings)
 
     if isinstance(vals, list):
         return vals[1]
     return vals
-
 
 # ------------------------------------------------------
 # 2. TABNET MASKS (optional / fallback)
