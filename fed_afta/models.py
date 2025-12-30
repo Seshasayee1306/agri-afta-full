@@ -161,4 +161,3 @@ class SimpleTorchEncoder(nn.Module):
 # Backward compatibility alias
 # -----------------------------------------------------
 TabNetEncoder = SimpleTorchEncoder
-
