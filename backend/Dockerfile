@@ -21,9 +21,6 @@ COPY backend /app/backend
 COPY fed_afta /app/fed_afta
 COPY dataset /app/dataset
 
-# ❌ REMOVE THIS (WRONG)
-# COPY retrain /app/retrain
-
 # -----------------------------
 # Ensure backend is a package
 # -----------------------------
