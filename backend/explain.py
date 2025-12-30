@@ -25,17 +25,26 @@ if GROQ_API_KEY:
 # 1. SHAP CONTRIBUTIONS
 # ------------------------------------------------------
 def shap_contribs(head, embeddings):
-    """
-    Compute SHAP values for model predictions.
-    head: XGBoost Booster object
-    embeddings: numpy array of embeddings
-    """
-    explainer = shap.TreeExplainer(head)
+    # ---- FIX base_score if it is malformed ----
+    try:
+        booster = head.get_booster() if hasattr(head, "get_booster") else head
+        params = booster.attributes()
+
+        if "base_score" in params:
+            val = params["base_score"]
+            if isinstance(val, str) and val.startswith("["):
+                clean = float(val.strip("[]"))
+                booster.set_attr(base_score=str(clean))
+    except Exception as e:
+        print("Warning: base_score cleanup failed:", e)
+
+    explainer = shap.TreeExplainer(booster)
     vals = explainer.shap_values(embeddings)
 
-    if isinstance(vals, list) and len(vals) > 1:
-        return vals[1]  # For binary classification, return class 1 contributions
+    if isinstance(vals, list):
+        return vals[1]
     return vals
+
 
 # ------------------------------------------------------
 # 2. TABNET MASKS (optional / fallback)
