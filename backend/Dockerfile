@@ -1,8 +1,5 @@
 FROM python:3.10-slim
 
-# -----------------------------
-# Set working directory
-# -----------------------------
 WORKDIR /app
 
 # -----------------------------
@@ -18,24 +15,20 @@ RUN pip install --no-cache-dir --upgrade pip && \
     rm -rf /root/.cache/pip
 
 # -----------------------------
-# Copy application code (CRITICAL)
+# Copy backend (includes retrain/)
 # -----------------------------
 COPY backend /app/backend
 COPY fed_afta /app/fed_afta
 COPY dataset /app/dataset
-COPY retrain /app/retrain
+
+# ❌ REMOVE THIS (WRONG)
+# COPY retrain /app/retrain
 
 # -----------------------------
 # Ensure backend is a package
 # -----------------------------
 RUN test -f /app/backend/__init__.py
 
-# -----------------------------
-# Expose port
-# -----------------------------
 EXPOSE 8000
 
-# -----------------------------
-# ✅ Correct module execution
-# -----------------------------
 CMD ["python", "-m", "backend.app"]
