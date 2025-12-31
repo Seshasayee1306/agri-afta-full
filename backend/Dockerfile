@@ -2,20 +2,20 @@ FROM python:3.10-slim
 
 WORKDIR /app
 
+# Copy requirements first (better caching)
 COPY backend/requirements.txt ./requirements.txt
 
+# Install dependencies EXACTLY as pinned
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu && \
-    pip install --no-cache-dir flask flask-cors python-dotenv groq && \
-    pip install --no-cache-dir numpy pandas scikit-learn xgboost && \
-    pip install --no-cache-dir pytorch-tabnet shap joblib scipy && \
+    pip install --no-cache-dir -r requirements.txt && \
     rm -rf /root/.cache/pip
 
-# retrain is INSIDE backend → copied automatically
+# Copy application code
 COPY backend /app/backend
 COPY fed_afta /app/fed_afta
 COPY dataset /app/dataset
 
+# Sanity check
 RUN test -f /app/backend/__init__.py
 
 EXPOSE 8000
