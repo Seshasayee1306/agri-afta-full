@@ -25,15 +25,14 @@ if GROQ_API_KEY:
 # 1. SHAP CONTRIBUTIONS
 # ------------------------------------------------------
 def shap_contribs(head, embeddings):
-    try:
-        explainer = shap.TreeExplainer(head)
-        vals = explainer.shap_values(embeddings)
-        if isinstance(vals, list):
-            return vals[1]
-        return vals
-    except Exception as e:
-        print("⚠️ SHAP disabled due to model incompatibility:", e)
-        return np.zeros(embeddings.shape[1])
+    """
+    SHAP TreeExplainer is DISABLED in production.
+    Reason: incompatible XGBoost base_score serialization.
+    Returns zero attributions as safe fallback.
+    """
+    print("⚠️ SHAP TreeExplainer disabled (production-safe fallback)")
+    return np.zeros(embeddings.shape[1])
+
 
 
 # ------------------------------------------------------
