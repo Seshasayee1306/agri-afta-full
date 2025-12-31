@@ -25,47 +25,16 @@ if GROQ_API_KEY:
 # 1. SHAP CONTRIBUTIONS
 # ------------------------------------------------------
 def shap_contribs(head, embeddings):
-    """
-    Compute SHAP values safely for XGBoost models.
-    Fixes malformed base_score like '[3.7E-1]' at config level.
-    """
-
-    import xgboost as xgb
-
-    # 1. Always work with raw Booster
-    if hasattr(head, "get_booster"):
-        booster = head.get_booster()
-    else:
-        booster = head
-
-    # 2. Rebuild clean booster (critical step)
-    raw = booster.save_raw()
-    clean_booster = xgb.Booster()
-    clean_booster.load_model(raw)
-
-    # 3. Fix malformed base_score in serialized config
     try:
-        config = clean_booster.save_config()
-        if '"base_score":"' in config:
-            config = config.replace(
-                '"base_score":"[3.7E-1]"',
-                '"base_score":"0.37"'
-            )
-            config = config.replace(
-                '"base_score":"3.7E-1"',
-                '"base_score":"0.37"'
-            )
-        clean_booster.load_config(config)
+        explainer = shap.TreeExplainer(head)
+        vals = explainer.shap_values(embeddings)
+        if isinstance(vals, list):
+            return vals[1]
+        return vals
     except Exception as e:
-        print("⚠️ SHAP base_score config fix skipped:", e)
+        print("⚠️ SHAP disabled due to model incompatibility:", e)
+        return np.zeros(embeddings.shape[1])
 
-    # 4. SHAP explanation using CLEAN booster
-    explainer = shap.TreeExplainer(clean_booster)
-    vals = explainer.shap_values(embeddings)
-
-    if isinstance(vals, list):
-        return vals[1]
-    return vals
 
 # ------------------------------------------------------
 # 2. TABNET MASKS (optional / fallback)
