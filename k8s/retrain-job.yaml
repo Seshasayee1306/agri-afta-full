@@ -1,0 +1,27 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: afta-retrain-manual
+spec:
+  backoffLimit: 1
+  template:
+    spec:
+      serviceAccountName: retrain-sa
+      restartPolicy: Never
+      containers:
+        - name: retrain
+          image: sesha1306/agri-backend:latest
+          imagePullPolicy: Always
+          command: ["python3", "/app/backend/retrain/retrain.py"]
+          volumeMounts:
+            - name: dataset-volume
+              mountPath: /app/dataset
+            - name: retrain-state
+              mountPath: /app/retrain_state
+      volumes:
+        - name: dataset-volume
+          hostPath:
+            path: /mnt/data/dataset
+            type: DirectoryOrCreate
+        - name: retrain-state
+          emptyDir: {}
