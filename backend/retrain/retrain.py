@@ -1,25 +1,49 @@
 import os
 import sys
-import pandas as pd
-import joblib
-from datetime import datetime
 import json
+import joblib
+import pandas as pd
+import numpy as np
+from datetime import datetime
 
 # -----------------------------------------------------
 # RETRAIN CONTROL CONFIG
 # -----------------------------------------------------
 STATE_FILE = "/app/retrain_state/retrain_state.json"
-
 MIN_NEW_ROWS = 50   # retrain only if at least these many new rows exist
 
 # -----------------------------------------------------
-# PATH FIXES (for Docker / K8s execution)
+# PATH FIXES (Docker / K8s safe)
 # -----------------------------------------------------
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from fed_afta.models import SimpleTorchEncoder
 from fed_afta.server import Server
+
+# -----------------------------------------------------
+# MODEL CONFIG (MOVED UP — REQUIRED)
+# -----------------------------------------------------
+features = [
+    "soil_moisture",
+    "temperature",
+    "soil_humidity",
+    "hour",
+    "dayofyear",
+    "air_temp",
+    "air_humidity",
+    "rainfall",
+    "ph",
+    "nitrogen",
+    "phosphorus",
+    "potassium"
+]
+
+config = {
+    "features": features,
+    "target": "needs_water",
+    "active_k": 500
+}
 
 # -----------------------------------------------------
 # STATE MANAGEMENT
@@ -31,6 +55,7 @@ def load_state():
         return json.load(f)
 
 def save_state(row_count):
+    os.makedirs(os.path.dirname(STATE_FILE), exist_ok=True)
     with open(STATE_FILE, "w") as f:
         json.dump({"last_trained_rows": row_count}, f)
 
@@ -40,58 +65,51 @@ def save_state(row_count):
 def run_retrain():
     print(f"[{datetime.now()}] Starting federated retraining job")
 
-    # Paths relative to /app in Docker
+    # Dataset path (Docker/K8s absolute)
     dataset_path = "/app/dataset/irrigation_dataset.csv"
-
-    model_output_path = os.path.join(
-        os.path.dirname(__file__),
-        "../final_model.pkl"
-    )
+    model_output_path = os.path.join(os.path.dirname(__file__), "../final_model.pkl")
 
     print(f"Loading dataset from: {dataset_path}")
     df = pd.read_csv(dataset_path)
 
-
     # -------------------------------------------------
-    # FEATURE SANITIZATION (CRITICAL)
+    # FEATURE SANITIZATION
     # -------------------------------------------------
     feature_cols = config["features"]
 
-    # Drop rows with NaN or inf in features
     before_feat = len(df)
     df = df.replace([np.inf, -np.inf], np.nan)
     df = df.dropna(subset=feature_cols)
 
-    print(f"Feature sanitization:")
+    print("Feature sanitization:")
     print(f" - Rows before: {before_feat}")
     print(f" - Rows after : {len(df)}")
 
     if len(df) == 0:
         raise ValueError("Dataset empty after feature sanitization")
 
-
     # -------------------------------------------------
-    # DATA SANITY CHECKS (CRITICAL)
+    # TARGET SANITIZATION
     # -------------------------------------------------
-    target_col = "needs_water"
+    target_col = config["target"]
 
-# Drop rows where target is missing
-    initial_rows = len(df)
+    before_target = len(df)
     df = df.dropna(subset=[target_col])
-
-# Force target to binary int {0,1}
     df[target_col] = df[target_col].astype(int)
-
-# Ensure valid label range
     df = df[df[target_col].isin([0, 1])]
 
-    print(f"Sanitized dataset:")
-    print(f" - Rows before: {initial_rows}")
+    print("Target sanitization:")
+    print(f" - Rows before: {before_target}")
     print(f" - Rows after : {len(df)}")
 
     if len(df) == 0:
-        raise ValueError("Dataset empty after sanitization — check labels")
+        raise ValueError("Dataset empty after target sanitization")
 
+    # -------------------------------------------------
+    # CLIENT ID CHECK (REQUIRED FOR FEDERATION)
+    # -------------------------------------------------
+    if "client_id" not in df.columns:
+        raise ValueError("client_id column missing from dataset")
 
     # -------------------------------------------------
     # RETRAIN GATING LOGIC
@@ -106,30 +124,6 @@ def run_retrain():
     if new_rows < MIN_NEW_ROWS:
         print("Not enough new data. Skipping retraining.")
         return
-
-    # -------------------------------------------------
-    # MODEL CONFIG
-    # -------------------------------------------------
-    features = [
-        "soil_moisture",
-        "temperature",
-        "soil_humidity",
-        "hour",
-        "dayofyear",
-        "air_temp",
-        "air_humidity",
-        "rainfall",
-        "ph",
-        "nitrogen",
-        "phosphorus",
-        "potassium"
-    ]
-
-    config = {
-        "features": features,
-        "target": "needs_water",
-        "active_k": 500
-    }
 
     # -------------------------------------------------
     # FEDERATED TRAINING
