@@ -41,10 +41,8 @@ def run_retrain():
     print(f"[{datetime.now()}] Starting federated retraining job")
 
     # Paths relative to /app in Docker
-    dataset_path = os.path.join(
-        os.path.dirname(__file__),
-        "../dataset/irrigation_dataset.csv"
-    )
+    dataset_path = "/app/dataset/irrigation_dataset.csv"
+
     model_output_path = os.path.join(
         os.path.dirname(__file__),
         "../final_model.pkl"
