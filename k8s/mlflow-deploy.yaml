@@ -20,6 +20,9 @@ spec:
           - server
           - "--host=0.0.0.0"
           - "--port=5000"
+          - "--backend-store-uri=sqlite:///mlflow.db"
+          - "--default-artifact-root=/mlruns"
+          - "--allowed-hosts=mlflow-svc,mlflow-svc.default,localhost,127.0.0.1"
         ports:
         - containerPort: 5000
 ---
