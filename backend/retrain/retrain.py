@@ -5,12 +5,14 @@ import joblib
 import pandas as pd
 import numpy as np
 from datetime import datetime
+import mlflow
+import mlflow.sklearn
 
 # -----------------------------------------------------
 # RETRAIN CONTROL CONFIG
 # -----------------------------------------------------
 STATE_FILE = "/app/retrain_state/retrain_state.json"
-MIN_NEW_ROWS = 50   # retrain only if at least these many new rows exist
+MIN_NEW_ROWS = 50
 
 # -----------------------------------------------------
 # PATH FIXES (Docker / K8s safe)
@@ -22,7 +24,7 @@ from fed_afta.models import SimpleTorchEncoder
 from fed_afta.server import Server
 
 # -----------------------------------------------------
-# MODEL CONFIG (MOVED UP — REQUIRED)
+# MODEL CONFIG (UNCHANGED)
 # -----------------------------------------------------
 features = [
     "soil_moisture",
@@ -63,9 +65,13 @@ def save_state(row_count):
 # MAIN RETRAIN FUNCTION
 # -----------------------------------------------------
 def run_retrain():
+
+    # ---------------- MLflow ----------------
+    mlflow.set_tracking_uri("http://mlflow-svc:5000")
+    mlflow.set_experiment("AFTA_Federated_Retrain")
+
     print(f"[{datetime.now()}] Starting federated retraining job")
 
-    # Dataset path (Docker/K8s absolute)
     dataset_path = "/app/dataset/irrigation_dataset.csv"
     model_output_path = os.path.join(os.path.dirname(__file__), "../final_model.pkl")
 
@@ -75,11 +81,9 @@ def run_retrain():
     # -------------------------------------------------
     # FEATURE SANITIZATION
     # -------------------------------------------------
-    feature_cols = config["features"]
-
     before_feat = len(df)
     df = df.replace([np.inf, -np.inf], np.nan)
-    df = df.dropna(subset=feature_cols)
+    df = df.dropna(subset=config["features"])
 
     print("Feature sanitization:")
     print(f" - Rows before: {before_feat}")
@@ -91,12 +95,10 @@ def run_retrain():
     # -------------------------------------------------
     # TARGET SANITIZATION
     # -------------------------------------------------
-    target_col = config["target"]
-
     before_target = len(df)
-    df = df.dropna(subset=[target_col])
-    df[target_col] = df[target_col].astype(int)
-    df = df[df[target_col].isin([0, 1])]
+    df = df.dropna(subset=[config["target"]])
+    df[config["target"]] = df[config["target"]].astype(int)
+    df = df[df[config["target"]].isin([0, 1])]
 
     print("Target sanitization:")
     print(f" - Rows before: {before_target}")
@@ -106,13 +108,13 @@ def run_retrain():
         raise ValueError("Dataset empty after target sanitization")
 
     # -------------------------------------------------
-    # CLIENT ID CHECK (REQUIRED FOR FEDERATION)
+    # CLIENT ID CHECK
     # -------------------------------------------------
     if "client_id" not in df.columns:
         raise ValueError("client_id column missing from dataset")
 
     # -------------------------------------------------
-    # RETRAIN GATING LOGIC
+    # RETRAIN GATING
     # -------------------------------------------------
     state = load_state()
     current_rows = len(df)
@@ -126,41 +128,53 @@ def run_retrain():
         return
 
     # -------------------------------------------------
-    # FEDERATED TRAINING
+    # FEDERATED TRAINING + MLFLOW
     # -------------------------------------------------
-    print("Initializing SimpleTorch encoder...")
-    encoder = SimpleTorchEncoder(
-        input_dim=len(features),
-        embedding_dim=16,
-        device="cpu"
-    )
+    with mlflow.start_run(run_name=f"retrain_{datetime.now().isoformat()}"):
 
-    print("Initializing federated server...")
-    srv = Server(df, encoder, config)
+        mlflow.log_param("model_type", "AFTA")
+        mlflow.log_param("rounds", 3)
+        mlflow.log_param("features", len(features))
+        mlflow.log_metric("rows_used", current_rows)
 
-    print("Registering federated clients...")
-    client_dfs = {
-        cid: df[df.client_id == cid].reset_index(drop=True)
-        for cid in sorted(df.client_id.unique())
-    }
-    srv.register_clients(client_dfs)
+        print("Initializing SimpleTorch encoder...")
+        encoder = SimpleTorchEncoder(
+            input_dim=len(features),
+            embedding_dim=16,
+            device="cpu"
+        )
 
-    print("Running 3 federated learning rounds...")
-    srv.run_rounds(rounds=3)
+        print("Initializing federated server...")
+        srv = Server(df, encoder, config)
 
-    # -------------------------------------------------
-    # SAVE MODEL + UPDATE STATE
-    # -------------------------------------------------
-    print(f"Saving trained model to: {model_output_path}")
-    joblib.dump(srv.global_model, model_output_path)
+        print("Registering federated clients...")
+        client_dfs = {
+            cid: df[df.client_id == cid].reset_index(drop=True)
+            for cid in sorted(df.client_id.unique())
+        }
+        srv.register_clients(client_dfs)
 
-    save_state(current_rows)
+        print("Running 3 federated learning rounds...")
+        srv.run_rounds(rounds=3)
 
-    print(f"[{datetime.now()}] Retraining completed successfully")
-    print("Retrain state updated")
+        # -------------------------------------------------
+        # SAVE MODEL
+        # -------------------------------------------------
+        print(f"Saving trained model to: {model_output_path}")
+        joblib.dump(srv.global_model, model_output_path)
+
+        mlflow.sklearn.log_model(
+            sk_model=srv.global_model,
+            artifact_path="model"
+        )
+
+        save_state(current_rows)
+
+        print(f"[{datetime.now()}] Retraining completed successfully")
+        print("Retrain state updated")
 
 # -----------------------------------------------------
-# ENTRYPOINT (K8s Job compatible)
+# ENTRYPOINT
 # -----------------------------------------------------
 if __name__ == "__main__":
     try:
