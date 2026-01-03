@@ -22,6 +22,8 @@ class Server:
         self.clients = {}
         self.global_head = None
         self.public_val = None
+        self.round_metrics = []   # <-- ADD THIS
+
 
     def register_clients(self, client_dfs):
         """Register Client instances (dict: client_id -> dataframe)."""
@@ -222,6 +224,7 @@ class Server:
                 d = xgb.DMatrix(emb_all)
                 preds = (self.global_head.predict(d) >= 0.5).astype(int)
                 acc = evaluate_preds(self.df_all[self.config['target']].values, preds)
+                self.round_metrics.append(acc)
                 print(f"[Server] Global accuracy after round {r}: {acc:.4f}")
             else:
                 print("[Server] No global head available yet to evaluate.")
