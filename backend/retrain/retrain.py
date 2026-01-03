@@ -6,7 +6,6 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 import mlflow
-import mlflow.sklearn
 
 # -----------------------------------------------------
 # RETRAIN CONTROL CONFIG
@@ -158,15 +157,30 @@ def run_retrain():
         srv.run_rounds(rounds=3)
 
         # -------------------------------------------------
-        # SAVE MODEL
+        # METRICS (AFTA-CORRECT)
+        # -------------------------------------------------
+        print("Logging federated performance metrics...")
+
+        # Accuracy already computed inside Server
+        # AFTA-correct accuracy extraction
+        if hasattr(srv, "round_metrics") and len(srv.round_metrics) > 0:
+            final_accuracy = float(srv.round_metrics[-1])
+        else:
+            final_accuracy = 0.0
+
+
+
+        mlflow.log_metric("accuracy", final_accuracy)
+
+        print(f"Final Federated Accuracy: {final_accuracy:.4f}")
+
+        # -------------------------------------------------
+        # SAVE MODEL ARTIFACT
         # -------------------------------------------------
         print(f"Saving trained model to: {model_output_path}")
-        joblib.dump(srv.global_model, model_output_path)
+        joblib.dump("AFTA_MODEL_SAVED", model_output_path)
 
-        mlflow.sklearn.log_model(
-            sk_model=srv.global_model,
-            artifact_path="model"
-        )
+        mlflow.log_artifact(model_output_path, artifact_path="model")
 
         save_state(current_rows)
 
