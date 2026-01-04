@@ -5,9 +5,10 @@ metadata:
 data:
   prometheus.yml: |
     global:
-      scrape_interval: 5s
+      scrape_interval: 15s
 
     scrape_configs:
-      - job_name: "backend"
+      - job_name: "agri-backend"
+        metrics_path: /metrics
         static_configs:
           - targets: ["agri-backend-svc:8000"]
