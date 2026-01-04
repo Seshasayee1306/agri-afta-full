@@ -52,7 +52,7 @@ export default function Predict() {
     };
 
     try {
-      const res = await fetch("http://127.0.0.1:8001/label", {
+      const res = await fetch("http://127.0.0.1:8000/label", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
