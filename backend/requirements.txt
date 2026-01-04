@@ -11,3 +11,4 @@ flask
 flask-cors
 python-dotenv
 mlflow==2.10.2
+prometheus-client

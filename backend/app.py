@@ -4,6 +4,9 @@ import os
 import numpy as np
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from prometheus_client import Counter, Histogram, generate_latest
+from flask import Response
+import time
 
 # ✅ Relative imports (work in local + Docker)
 from backend.model_loader import ModelWrapper
@@ -140,6 +143,32 @@ def label_data():
         return jsonify({"error": str(e)}), 500
 
     return jsonify({"status": "Data appended successfully"})
+
+REQUEST_COUNT = Counter(
+    "http_requests_total",
+    "Total HTTP requests",
+    ["method", "endpoint", "status"]
+)
+
+REQUEST_LATENCY = Histogram(
+    "http_request_latency_seconds",
+    "Request latency",
+    ["endpoint"]
+)
+
+@app.after_request
+def after_request(response):
+    REQUEST_COUNT.labels(
+        request.method,
+        request.path,
+        response.status_code
+    ).inc()
+    return response
+
+
+@app.route("/metrics")
+def metrics():
+    return Response(generate_latest(), mimetype="text/plain")
 
 # -----------------------------------------------------
 # HEALTH CHECK (K8s / Docker friendly)
