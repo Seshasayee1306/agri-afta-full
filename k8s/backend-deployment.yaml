@@ -23,6 +23,14 @@ spec:
                 secretKeyRef:
                   name: groq-secret
                   key: api-key
+          volumeMounts:                       # ✅ REQUIRED
+            - name: model-store
+              mountPath: /models
+      volumes:
+        - name: model-store
+          persistentVolumeClaim:
+            claimName: model-store-pvc       # ✅ FIXED INDENTATION
+
 ---
 apiVersion: v1
 kind: Service
@@ -32,6 +40,6 @@ spec:
   selector:
     app: agri-backend
   ports:
-  - port: 8000
-    targetPort: 8000
+    - port: 8000
+      targetPort: 8000
   type: LoadBalancer

@@ -1,0 +1,8 @@
+# Ignore everything by default
+**
+
+# Allow frontend only
+!frontend/**
+!frontend/Dockerfile
+!frontend/package.json
+!frontend/package-lock.json
