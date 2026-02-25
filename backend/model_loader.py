@@ -128,3 +128,19 @@ class ModelWrapper:
         prob = self._predict_xgb(emb)[0]
         pred = int(prob >= 0.5)
         return emb, prob, pred
+    # -----------------------------------------------------
+# NEW: Stage-Based Model Loader
+# -----------------------------------------------------
+
+def load_stage_model(stage):
+    """
+    Load stage-specific model artifact.
+    Example:
+    backend/stage_models/germination_model.pkl
+    """
+    stage_model_path = os.path.join(CUR_DIR, "stage_models", f"{stage}_model.pkl")
+
+    if not os.path.exists(stage_model_path):
+        raise FileNotFoundError(f"Stage model not found: {stage_model_path}")
+
+    return ModelWrapper(stage_model_path)
