@@ -5,7 +5,10 @@ import os
 # -------------------------------------------------
 # MODEL PATH (mounted PVC)
 # -------------------------------------------------
-MODEL_PATH = "/models/context_model.pkl"
+import os
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_PATH = os.path.join(BASE_DIR, "context_model.pkl")
 
 # -------------------------------------------------
 # Disease → numeric severity mapping
