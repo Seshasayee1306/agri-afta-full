@@ -20,14 +20,14 @@ RANGES = [
 
 def normalize(features):
     # Debug logging
-    print(f"DEBUG: Received features type: {type(features)}")
-    print(f"DEBUG: Received features: {features}")
-    print(f"DEBUG: Features length: {len(features) if hasattr(features, '__len__') else 'N/A'}")
+    #print(f"DEBUG: Received features type: {type(features)}")
+    #print(f"DEBUG: Received features: {features}")
+    #print(f"DEBUG: Features length: {len(features) if hasattr(features, '__len__') else 'N/A'}")
     
     features = np.array(features, dtype=np.float32)
     
-    print(f"DEBUG: Array shape: {features.shape}")
-    print(f"DEBUG: Expected RANGES length: {len(RANGES)}")
+    #print(f"DEBUG: Array shape: {features.shape}")
+    #print(f"DEBUG: Expected RANGES length: {len(RANGES)}")
 
     if len(features) != len(RANGES):
         raise ValueError(

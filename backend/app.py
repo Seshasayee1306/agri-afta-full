@@ -1,5 +1,6 @@
 # backend/app.py
-
+from backend.stage_engine import calculate_days_after_sowing, identify_growth_stage
+from backend.stage_rf_engine import predict_stage
 import os
 import numpy as np
 from flask import Flask, request, jsonify, Response
@@ -13,6 +14,35 @@ from backend.data_logger import append_labeled_row
 from backend.utils.sensor_normalizer import normalize
 # 🔹 Context model import (UNCHANGED)
 from backend.context.context_model import context_model
+# =====================================================
+# STRESS INDEX CALCULATION
+# =====================================================
+def calculate_stress_index(stage, soil_moisture, temperature, rainfall, ndvi=0.5):
+
+    # Normalize inputs
+    soil_factor = 1 - (soil_moisture / 100)
+    temp_factor = min(max((temperature - 20) / 20, 0), 1)
+    rain_factor = 1 - min(rainfall / 200, 1)
+    ndvi_factor = 1 - ndvi
+
+    # Stage sensitivity weight
+    stage_weights = {
+        "germination": 1.2,
+        "vegetative": 1.0,
+        "flowering": 1.3,
+        "harvest": 0.8
+    }
+
+    stage_weight = stage_weights.get(stage, 1.0)
+
+    stress = (soil_factor * 0.4 +
+              temp_factor * 0.2 +
+              rain_factor * 0.2 +
+              ndvi_factor * 0.2)
+
+    stress = stress * stage_weight
+
+    return round(min(stress, 1.0), 3)
 
 # -----------------------------------------------------
 # FLASK APP
@@ -152,6 +182,45 @@ def metrics():
 @app.route("/health", methods=["GET"])
 def health():
     return jsonify({"status": "backend running"})
+# =====================================================
+# NEW: STAGE-AWARE PREDICTION
+# =====================================================
+@app.route("/predict_stage_aware", methods=["POST"])
+def predict_stage_aware():
+
+    json_data = request.get_json(silent=True)
+    if not json_data:
+        return jsonify({"error": "Invalid JSON payload"}), 400
+
+    sowing_date = json_data.get("sowing_date")
+    current_date = json_data.get("current_date")
+
+    if not sowing_date or not current_date:
+        return jsonify({"error": "Missing sowing_date or current_date"}), 400
+
+    days = calculate_days_after_sowing(sowing_date, current_date)
+    stage = identify_growth_stage(days)
+
+    feature_dict = {
+        "soil_moisture": json_data.get("soil_moisture"),
+        "temperature": json_data.get("temperature"),
+        "soil_humidity": json_data.get("soil_humidity"),
+        "air_temp": json_data.get("air_temp"),
+        "air_humidity": json_data.get("air_humidity"),
+        "rainfall": json_data.get("rainfall"),
+        "ph": json_data.get("ph"),
+        "nitrogen": json_data.get("nitrogen"),
+        "phosphorus": json_data.get("phosphorus"),
+        "potassium": json_data.get("potassium")
+    }
+
+    stage_prediction = predict_stage(stage, feature_dict)
+
+    return jsonify({
+        "growth_stage": stage,
+        "needs_water_prediction": stage_prediction
+    })
+
 
 # =====================================================
 # ✅ CONTEXT-AWARE PREDICTION (FIXED ONLY)
@@ -217,7 +286,138 @@ def predict_with_context():
             else "No irrigation required"
         )
     })
+# =====================================================
+# FULL INTELLIGENT STAGE + AFTA + CONTEXT
+# =====================================================
+@app.route("/predict_full_intelligent", methods=["POST"])
+def predict_full_intelligent():
 
+    json_data = request.get_json(silent=True)
+    if not json_data:
+        return jsonify({"error": "Invalid JSON payload"}), 400
+
+    # -----------------------------
+    # 1️⃣ Stage Detection
+    # -----------------------------
+    sowing_date = json_data.get("sowing_date")
+    current_date = json_data.get("current_date")
+
+    if not sowing_date or not current_date:
+        return jsonify({"error": "Missing sowing_date or current_date"}), 400
+
+    days = calculate_days_after_sowing(sowing_date, current_date)
+    stage = identify_growth_stage(days)
+
+    # -----------------------------
+    # 2️⃣ Stage Model Prediction
+    # -----------------------------
+    feature_dict = {
+        "soil_moisture": json_data.get("soil_moisture"),
+        "temperature": json_data.get("temperature"),
+        "soil_humidity": json_data.get("soil_humidity"),
+        "air_temp": json_data.get("air_temp"),
+        "air_humidity": json_data.get("air_humidity"),
+        "rainfall": json_data.get("rainfall"),
+        "ph": json_data.get("ph"),
+        "nitrogen": json_data.get("nitrogen"),
+        "phosphorus": json_data.get("phosphorus"),
+        "potassium": json_data.get("potassium")
+    }
+
+    stage_prediction = predict_stage(stage, feature_dict)
+
+    # -----------------------------
+    # 3️⃣ AFTA Sensor Prediction
+    # -----------------------------
+    sensor_features = json_data.get("sensor_features")
+    if sensor_features is None:
+        return jsonify({"error": "Missing sensor_features for AFTA model"}), 400
+
+    X = normalize(sensor_features).reshape(1, -1)
+    afta_prediction = int(model.predict(X))
+
+    # -----------------------------
+    # 4️⃣ Context Prediction
+    # -----------------------------
+    context = json_data.get("context", {})
+
+    region = context.get("region", "Unknown")
+    crop_type = context.get("crop_type", "Unknown")
+    ndvi = float(context.get("ndvi", 0.5))
+    disease_status = context.get("disease_status", "None")
+    temperature_ctx = float(context.get("temperature", 25))
+    rainfall_ctx = float(context.get("rainfall", 100))
+    humidity_ctx = float(context.get("humidity", 60))
+
+    try:
+        context_score = context_model.predict_context_score(
+            region=region,
+            crop_type=crop_type,
+            ndvi=ndvi,
+            disease_status=disease_status,
+            temperature=temperature_ctx,
+            rainfall=rainfall_ctx,
+            humidity=humidity_ctx
+        )
+    except Exception as e:
+        print("Context model not available:", e)
+        context_score = 0.5
+
+    # -----------------------------
+    # 5️⃣ Final Decision Logic
+    # -----------------------------
+    votes = [stage_prediction, afta_prediction]
+
+    if context_score >= 0.6:
+        votes.append(1)
+    else:
+        votes.append(0)
+
+    if stress_index >= 0.6:
+        final_prediction = 1
+    elif sum(votes) >= 2:
+        final_prediction = 1
+    else:
+        final_prediction = 0
+    # -----------------------------------------------------
+    # 6️⃣ STRESS + WATER RECOMMENDATION
+    # -----------------------------------------------------
+    stress_index = calculate_stress_index(
+        stage=stage,
+        soil_moisture=feature_dict["soil_moisture"],
+        temperature=feature_dict["temperature"],
+        rainfall=feature_dict["rainfall"],
+        ndvi=ndvi
+    )
+
+    if stress_index >= 0.7:
+        irrigation_level = "High"
+        water_liters = 25
+    elif stress_index >= 0.4:
+        irrigation_level = "Medium"
+        water_liters = 15
+    else:
+        irrigation_level = "Low"
+        water_liters = 5
+
+    return jsonify({
+        "growth_stage": stage,
+        "stage_model_prediction": stage_prediction,
+        "afta_prediction": afta_prediction,
+        "context_score": round(float(context_score), 3),
+        "final_prediction": final_prediction,
+        "stress_index": stress_index,
+        "irrigation_level": irrigation_level,
+        "recommended_water_liters": water_liters
+    })
+from flask import send_from_directory, render_template
+
+# -----------------------------------------------------
+# DASHBOARD PAGE
+# -----------------------------------------------------
+@app.route("/dashboard")
+def dashboard():
+    return render_template("dashboard.html")
 # -----------------------------------------------------
 # ENTRYPOINT
 # -----------------------------------------------------
