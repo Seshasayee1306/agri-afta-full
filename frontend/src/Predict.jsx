@@ -1,115 +1,143 @@
 import React, { useState } from "react";
 
 export default function Predict() {
-  const [features, setFeatures] = useState(""); // CSV-like input
+  const [sensorFeatures, setSensorFeatures] = useState("");
+  const [sowingDate, setSowingDate] = useState("");
+  const [currentDate, setCurrentDate] = useState("");
+
+  const [soilMoisture, setSoilMoisture] = useState("");
+  const [temperature, setTemperature] = useState("");
+  const [rainfall, setRainfall] = useState("");
+
+  const [region, setRegion] = useState("");
+  const [cropType, setCropType] = useState("");
+  const [ndvi, setNdvi] = useState("0.5");
+  const [diseaseStatus, setDiseaseStatus] = useState("None");
+  const [humidity, setHumidity] = useState("");
+
   const [result, setResult] = useState(null);
 
-  // ✅ ADDED STATES
-  const [actualLabel, setActualLabel] = useState("");
-  const [statusMsg, setStatusMsg] = useState("");
-  const [lastFeatureArray, setLastFeatureArray] = useState(null);
-
   const handlePredict = async () => {
-    if (!features) return;
+    const arr = sensorFeatures.split(",").map(x => parseFloat(x.trim()));
 
-    // Convert comma-separated input to array of floats
-    const arr = features.split(",").map((x) => parseFloat(x.trim()));
-
-    try {
-      const res = await fetch("http://127.0.0.1:8000/predict", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ features: arr }),
-      });
-      const data = await res.json();
-      setResult(data);
-
-      // ✅ STORE FEATURES FOR TRAINING LATER
-      setLastFeatureArray(arr);
-      setActualLabel("");
-      setStatusMsg("");
-    } catch (err) {
-      console.error(err);
-      setResult({ error: "Failed to fetch prediction" });
-    }
-  };
-
-  // ✅ ADDED FUNCTION — SAVE LABELED DATA
-  const submitForTraining = async () => {
-    if (!lastFeatureArray) {
-      setStatusMsg("No prediction data available");
-      return;
-    }
-
-    if (actualLabel === "") {
-      setStatusMsg("Please select the actual outcome");
+    if (arr.length !== 12 || arr.some(isNaN)) {
+      alert("Enter exactly 12 valid sensor values");
       return;
     }
 
     const payload = {
-      features: lastFeatureArray,
-      label: Number(actualLabel),
+      sowing_date: sowingDate,
+      current_date: currentDate,
+      soil_moisture: Number(soilMoisture),
+      temperature: Number(temperature),
+      rainfall: Number(rainfall),
+
+      soil_humidity: 50,
+      air_temp: Number(temperature),
+      air_humidity: Number(humidity),
+      ph: 6.5,
+      nitrogen: 40,
+      phosphorus: 30,
+      potassium: 50,
+
+      sensor_features: arr,
+
+      context: {
+        region,
+        crop_type: cropType,
+        ndvi: Number(ndvi),
+        disease_status: diseaseStatus,
+        temperature: Number(temperature),
+        rainfall: Number(rainfall),
+        humidity: Number(humidity)
+      }
     };
 
     try {
-      const res = await fetch("http://127.0.0.1:8000/label", {
+      const res = await fetch("http://127.0.0.1:8000/predict_full_intelligent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(payload)
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to save data");
-
-      setStatusMsg("✅ Data saved for future training");
-      setActualLabel("");
+      setResult(data);
     } catch (err) {
-      setStatusMsg(`❌ ${err.message}`);
+      console.error(err);
+      alert("Prediction failed");
     }
   };
 
   return (
-    <div>
-      <h2>Predict Water Need</h2>
+    <div style={{ maxWidth: "900px", margin: "40px auto", fontFamily: "Inter" }}>
+      <h2>🌾 Full Intelligent Irrigation System</h2>
+
+      <h3>📡 Sensor Input</h3>
       <input
         type="text"
-        placeholder="Enter features comma separated"
-        value={features}
-        onChange={(e) => setFeatures(e.target.value)}
-        style={{ width: "400px", marginRight: "10px" }}
+        placeholder="Enter 12 sensor values comma separated"
+        value={sensorFeatures}
+        onChange={(e) => setSensorFeatures(e.target.value)}
+        style={{ width: "100%", padding: "10px", marginBottom: "10px" }}
       />
-      <button onClick={handlePredict}>Predict</button>
+
+      <h3>📅 Crop Stage</h3>
+      <input type="date" value={sowingDate} onChange={e => setSowingDate(e.target.value)} />
+      <input type="date" value={currentDate} onChange={e => setCurrentDate(e.target.value)} style={{ marginLeft: "10px" }} />
+
+      <h3>🌡 Environmental Data</h3>
+      <input type="number" placeholder="Soil Moisture" value={soilMoisture} onChange={e => setSoilMoisture(e.target.value)} />
+      <input type="number" placeholder="Temperature" value={temperature} onChange={e => setTemperature(e.target.value)} style={{ marginLeft: "10px" }} />
+      <input type="number" placeholder="Rainfall" value={rainfall} onChange={e => setRainfall(e.target.value)} style={{ marginLeft: "10px" }} />
+      <input type="number" placeholder="Humidity" value={humidity} onChange={e => setHumidity(e.target.value)} style={{ marginLeft: "10px" }} />
+
+      <h3>🌍 Context Data</h3>
+      <input type="text" placeholder="Region" value={region} onChange={e => setRegion(e.target.value)} />
+      <input type="text" placeholder="Crop Type" value={cropType} onChange={e => setCropType(e.target.value)} style={{ marginLeft: "10px" }} />
+      <input type="number" step="0.01" placeholder="NDVI" value={ndvi} onChange={e => setNdvi(e.target.value)} style={{ marginLeft: "10px" }} />
+
+      <select value={diseaseStatus} onChange={e => setDiseaseStatus(e.target.value)} style={{ marginLeft: "10px" }}>
+        <option value="None">No Disease</option>
+        <option value="Mild">Mild Disease</option>
+        <option value="Severe">Severe Disease</option>
+      </select>
+
+      <br /><br />
+
+      <button
+        onClick={handlePredict}
+        style={{
+          padding: "12px 25px",
+          background: "#2563eb",
+          color: "white",
+          border: "none",
+          borderRadius: "8px",
+          fontWeight: "600"
+        }}
+      >
+        🚀 Run Full Intelligent Prediction
+      </button>
 
       {result && (
-        <div style={{ marginTop: "20px" }}>
-          <h3>Prediction Result:</h3>
-          <pre>{JSON.stringify(result, null, 2)}</pre>
+        <div style={{ marginTop: "30px", padding: "20px", background: "#f1f5f9", borderRadius: "10px" }}>
+          <h3>📊 Results</h3>
+          <p><strong>Growth Stage:</strong> {result.growth_stage}</p>
+          <p><strong>Stage Model:</strong> {result.stage_model_prediction}</p>
+          <p><strong>AFTA Model:</strong> {result.afta_prediction}</p>
+          <p><strong>Context Score:</strong> {result.context_score}</p>
+          <p><strong>Stress Index:</strong> {result.stress_index}</p>
 
-          {/* ✅ ADDED LABEL CONFIRMATION SECTION */}
-          <div style={{ marginTop: "15px" }}>
-            <h4>Confirm Actual Outcome (for future training)</h4>
+          <h2>
+            {result.final_prediction === 1
+              ? "💧 Irrigation Required"
+              : "✅ No Irrigation Needed"}
+          </h2>
 
-            <select
-              value={actualLabel}
-              onChange={(e) => setActualLabel(e.target.value)}
-            >
-              <option value="">Select actual result</option>
-              <option value="1">Needs Water</option>
-              <option value="0">No Water Needed</option>
-            </select>
-
-            <button
-              onClick={submitForTraining}
-              style={{ marginLeft: "10px" }}
-            >
-              Save for Training
-            </button>
-          </div>
+          <h3>
+            💦 Recommended Water: {result.recommended_water_liters} Liters
+          </h3>
         </div>
       )}
-
-      {/* ✅ STATUS MESSAGE */}
-      {statusMsg && <p style={{ marginTop: "10px" }}>{statusMsg}</p>}
     </div>
   );
 }

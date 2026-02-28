@@ -1,4 +1,3 @@
-# backend/app.py
 from backend.stage_engine import calculate_days_after_sowing, identify_growth_stage
 from backend.stage_rf_engine import predict_stage
 import os
@@ -14,18 +13,17 @@ from backend.data_logger import append_labeled_row
 from backend.utils.sensor_normalizer import normalize
 # 🔹 Context model import (UNCHANGED)
 from backend.context.context_model import context_model
+
 # =====================================================
 # STRESS INDEX CALCULATION
 # =====================================================
 def calculate_stress_index(stage, soil_moisture, temperature, rainfall, ndvi=0.5):
 
-    # Normalize inputs
     soil_factor = 1 - (soil_moisture / 100)
     temp_factor = min(max((temperature - 20) / 20, 0), 1)
     rain_factor = 1 - min(rainfall / 200, 1)
     ndvi_factor = 1 - ndvi
 
-    # Stage sensitivity weight
     stage_weights = {
         "germination": 1.2,
         "vegetative": 1.0,
@@ -65,7 +63,7 @@ def home():
     return jsonify({"message": "Flask backend is running"})
 
 # -----------------------------------------------------
-# PREDICT (UNCHANGED)
+# PREDICT
 # -----------------------------------------------------
 @app.route("/predict", methods=["POST"])
 def predict():
@@ -86,7 +84,7 @@ def predict():
     return jsonify({"prediction": int(pred)})
 
 # -----------------------------------------------------
-# EXPLAIN (UNCHANGED)
+# EXPLAIN
 # -----------------------------------------------------
 @app.route("/explain", methods=["POST"])
 def explain():
@@ -131,7 +129,7 @@ def explain():
     })
 
 # -----------------------------------------------------
-# LABEL DATA (UNCHANGED)
+# LABEL DATA
 # -----------------------------------------------------
 @app.route("/label", methods=["POST"])
 def label_data():
@@ -149,7 +147,7 @@ def label_data():
     return jsonify({"status": "Data appended successfully"})
 
 # -----------------------------------------------------
-# PROMETHEUS METRICS (UNCHANGED)
+# PROMETHEUS METRICS
 # -----------------------------------------------------
 REQUEST_COUNT = Counter(
     "http_requests_total",
@@ -182,6 +180,7 @@ def metrics():
 @app.route("/health", methods=["GET"])
 def health():
     return jsonify({"status": "backend running"})
+
 # =====================================================
 # NEW: STAGE-AWARE PREDICTION
 # =====================================================
@@ -221,9 +220,8 @@ def predict_stage_aware():
         "needs_water_prediction": stage_prediction
     })
 
-
 # =====================================================
-# ✅ CONTEXT-AWARE PREDICTION (FIXED ONLY)
+# CONTEXT-AWARE PREDICTION
 # =====================================================
 @app.route("/predict_with_context", methods=["POST"])
 def predict_with_context():
@@ -231,7 +229,6 @@ def predict_with_context():
     if not json_data:
         return jsonify({"error": "Invalid JSON payload"}), 400
 
-    # Sensor features (UNCHANGED)
     sensor_features = json_data.get("features")
     if sensor_features is None:
         return jsonify({"error": "Missing sensor features"}), 400
@@ -240,16 +237,14 @@ def predict_with_context():
         return jsonify({
             "error": "Expected exactly 12 sensor features",
             "received": len(sensor_features)
-    }), 400
-
+        }), 400
 
     X = normalize(sensor_features).reshape(1, -1)
     sensor_prediction = int(model.predict(X))
 
-    # Context features
     context = json_data.get("context", {})
 
-    region = context.get("region", "Unknown")   # ✅ FIX
+    region = context.get("region", "Unknown")
     crop_type = context.get("crop_type", "Unknown")
     ndvi = float(context.get("ndvi", 0.5))
     disease_status = context.get("disease_status", "None")
@@ -286,6 +281,7 @@ def predict_with_context():
             else "No irrigation required"
         )
     })
+
 # =====================================================
 # FULL INTELLIGENT STAGE + AFTA + CONTEXT
 # =====================================================
@@ -296,9 +292,6 @@ def predict_full_intelligent():
     if not json_data:
         return jsonify({"error": "Invalid JSON payload"}), 400
 
-    # -----------------------------
-    # 1️⃣ Stage Detection
-    # -----------------------------
     sowing_date = json_data.get("sowing_date")
     current_date = json_data.get("current_date")
 
@@ -308,9 +301,6 @@ def predict_full_intelligent():
     days = calculate_days_after_sowing(sowing_date, current_date)
     stage = identify_growth_stage(days)
 
-    # -----------------------------
-    # 2️⃣ Stage Model Prediction
-    # -----------------------------
     feature_dict = {
         "soil_moisture": json_data.get("soil_moisture"),
         "temperature": json_data.get("temperature"),
@@ -326,9 +316,6 @@ def predict_full_intelligent():
 
     stage_prediction = predict_stage(stage, feature_dict)
 
-    # -----------------------------
-    # 3️⃣ AFTA Sensor Prediction
-    # -----------------------------
     sensor_features = json_data.get("sensor_features")
     if sensor_features is None:
         return jsonify({"error": "Missing sensor_features for AFTA model"}), 400
@@ -336,9 +323,6 @@ def predict_full_intelligent():
     X = normalize(sensor_features).reshape(1, -1)
     afta_prediction = int(model.predict(X))
 
-    # -----------------------------
-    # 4️⃣ Context Prediction
-    # -----------------------------
     context = json_data.get("context", {})
 
     region = context.get("region", "Unknown")
@@ -363,9 +347,15 @@ def predict_full_intelligent():
         print("Context model not available:", e)
         context_score = 0.5
 
-    # -----------------------------
-    # 5️⃣ Final Decision Logic
-    # -----------------------------
+    # ✅ FIX: Stress index calculated BEFORE decision logic
+    stress_index = calculate_stress_index(
+        stage=stage,
+        soil_moisture=feature_dict["soil_moisture"],
+        temperature=feature_dict["temperature"],
+        rainfall=feature_dict["rainfall"],
+        ndvi=ndvi
+    )
+
     votes = [stage_prediction, afta_prediction]
 
     if context_score >= 0.6:
@@ -379,16 +369,6 @@ def predict_full_intelligent():
         final_prediction = 1
     else:
         final_prediction = 0
-    # -----------------------------------------------------
-    # 6️⃣ STRESS + WATER RECOMMENDATION
-    # -----------------------------------------------------
-    stress_index = calculate_stress_index(
-        stage=stage,
-        soil_moisture=feature_dict["soil_moisture"],
-        temperature=feature_dict["temperature"],
-        rainfall=feature_dict["rainfall"],
-        ndvi=ndvi
-    )
 
     if stress_index >= 0.7:
         irrigation_level = "High"
@@ -410,16 +390,12 @@ def predict_full_intelligent():
         "irrigation_level": irrigation_level,
         "recommended_water_liters": water_liters
     })
+
 from flask import send_from_directory, render_template
 
-# -----------------------------------------------------
-# DASHBOARD PAGE
-# -----------------------------------------------------
 @app.route("/dashboard")
 def dashboard():
     return render_template("dashboard.html")
-# -----------------------------------------------------
-# ENTRYPOINT
-# -----------------------------------------------------
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8000, debug=True)
