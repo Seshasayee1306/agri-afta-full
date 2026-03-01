@@ -5,10 +5,18 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./backend/final_model.pkl:/app/final_model.pkl:ro
+      # Model used by backend.app is /app/backend/final_model.pkl
+      - ./backend/final_model.pkl:/app/backend/final_model.pkl
       - ./dataset:/app/dataset
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      # S3 logging (optional)
+      - S3_BUCKET=${S3_BUCKET}
+      - S3_PREFIX=${S3_PREFIX:-agri}
+      - AWS_REGION=${AWS_REGION}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN}
   mlflow:
     image: mlfloworg/mlflow:latest
     ports:

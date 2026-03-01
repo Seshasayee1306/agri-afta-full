@@ -8,6 +8,81 @@ from datetime import datetime
 import mlflow
 
 # -----------------------------------------------------
+# OPTIONAL: S3 LABELED DATA LOADER
+# -----------------------------------------------------
+def _s3_client():
+    import boto3
+    return boto3.client("s3", region_name=os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION"))
+
+
+def _load_new_labeled_rows_from_s3():
+    """
+    Loads newly-arrived labeled rows from S3 objects under {S3_PREFIX}/labeled/.
+
+    Each object is expected to be JSON like:
+      { "kind":"label", "features":[12 floats], "label":0/1, ... }
+
+    Returns: (df_new, last_key_processed)
+    """
+    bucket = os.getenv("S3_BUCKET")
+    if not bucket:
+        return pd.DataFrame(), None
+
+    base = os.getenv("S3_PREFIX", "agri").strip().strip("/")
+    prefix = f"{base}/labeled/"
+
+    state = load_state()
+    last_key = state.get("last_s3_key")
+
+    s3 = _s3_client()
+    keys = []
+    token = None
+    while True:
+        kwargs = {"Bucket": bucket, "Prefix": prefix, "MaxKeys": 1000}
+        if token:
+            kwargs["ContinuationToken"] = token
+        resp = s3.list_objects_v2(**kwargs)
+        for obj in resp.get("Contents", []):
+            k = obj.get("Key")
+            if not k:
+                continue
+            if last_key and k <= last_key:
+                continue
+            keys.append(k)
+        if resp.get("IsTruncated"):
+            token = resp.get("NextContinuationToken")
+        else:
+            break
+
+    if not keys:
+        return pd.DataFrame(), last_key
+
+    keys = sorted(set(keys))
+    rows = []
+    for k in keys:
+        try:
+            body = s3.get_object(Bucket=bucket, Key=k)["Body"].read()
+            rec = json.loads(body.decode("utf-8"))
+            if rec.get("kind") != "label":
+                continue
+            feats = rec.get("features")
+            label = rec.get("label")
+            if not isinstance(feats, list) or len(feats) != 12:
+                continue
+            if label not in (0, 1):
+                continue
+            rows.append([float(x) for x in feats] + [int(label)])
+        except Exception as e:
+            print("Skipping S3 key due to parse error:", k, e)
+
+    if not rows:
+        return pd.DataFrame(), keys[-1]
+
+    cols = features + ["needs_water"]
+    df_new = pd.DataFrame(rows, columns=cols)
+    return df_new, keys[-1]
+
+# -----------------------------------------------------
 # RETRAIN CONTROL CONFIG
 # -----------------------------------------------------
 STATE_FILE = "/app/retrain_state/retrain_state.json"
@@ -51,14 +126,14 @@ config = {
 # -----------------------------------------------------
 def load_state():
     if not os.path.exists(STATE_FILE):
-        return {"last_trained_rows": 0}
+        return {"last_trained_rows": 0, "last_s3_key": None}
     with open(STATE_FILE, "r") as f:
         return json.load(f)
 
-def save_state(row_count):
+def save_state(row_count, last_s3_key=None):
     os.makedirs(os.path.dirname(STATE_FILE), exist_ok=True)
     with open(STATE_FILE, "w") as f:
-        json.dump({"last_trained_rows": row_count}, f)
+        json.dump({"last_trained_rows": row_count, "last_s3_key": last_s3_key}, f)
 
 # -----------------------------------------------------
 # MAIN RETRAIN FUNCTION
@@ -71,18 +146,29 @@ def run_retrain():
 
     print(f"[{datetime.now()}] Starting federated retraining job")
 
-    dataset_path = "/app/dataset/irrigation_dataset.csv"
+    dataset_path = os.getenv("BASE_TRAINING_DATASET", "/app/dataset/irrigation_dataset.csv")
     model_output_path = os.path.join(os.path.dirname(__file__), "../final_model.pkl")
 
     print(f"Loading dataset from: {dataset_path}")
     df = pd.read_csv(dataset_path)
+
+    # Append newly labeled rows from S3 (if configured)
+    df_new, last_s3_key = _load_new_labeled_rows_from_s3()
+    if len(df_new) > 0:
+        print(f"Appending {len(df_new)} new labeled rows from S3.")
+        df = pd.concat([df, df_new], ignore_index=True, sort=False)
+    else:
+        print("No new labeled rows found in S3 (or S3 not configured).")
 
     # -------------------------------------------------
     # FEATURE SANITIZATION
     # -------------------------------------------------
     before_feat = len(df)
     df = df.replace([np.inf, -np.inf], np.nan)
-    df = df.dropna(subset=config["features"])
+    # Keep rows; fill missing feature values with 0 (consistent with AFTA pipeline)
+    for c in config["features"]:
+        df[c] = pd.to_numeric(df[c], errors="coerce")
+    df[config["features"]] = df[config["features"]].fillna(0)
 
     print("Feature sanitization:")
     print(f" - Rows before: {before_feat}")
@@ -95,6 +181,7 @@ def run_retrain():
     # TARGET SANITIZATION
     # -------------------------------------------------
     before_target = len(df)
+    df[config["target"]] = pd.to_numeric(df[config["target"]], errors="coerce")
     df = df.dropna(subset=[config["target"]])
     df[config["target"]] = df[config["target"]].astype(int)
     df = df[df[config["target"]].isin([0, 1])]
@@ -110,19 +197,21 @@ def run_retrain():
     # CLIENT ID CHECK
     # -------------------------------------------------
     if "client_id" not in df.columns:
-        raise ValueError("client_id column missing from dataset")
+        print("client_id column missing from dataset; assigning client_id=0")
+        df["client_id"] = 0
+    df["client_id"] = pd.to_numeric(df["client_id"], errors="coerce").fillna(0).astype(int)
 
     # -------------------------------------------------
     # RETRAIN GATING
     # -------------------------------------------------
     state = load_state()
     current_rows = len(df)
-    new_rows = current_rows - state["last_trained_rows"]
+    new_rows = current_rows - int(state.get("last_trained_rows", 0))
 
     print(f"Current rows: {current_rows}")
     print(f"Rows since last retrain: {new_rows}")
 
-    if new_rows < MIN_NEW_ROWS:
+    if new_rows < MIN_NEW_ROWS and len(df_new) == 0:
         print("Not enough new data. Skipping retraining.")
         return
 
@@ -177,12 +266,27 @@ def run_retrain():
         # -------------------------------------------------
         # SAVE MODEL ARTIFACT
         # -------------------------------------------------
-        print(f"Saving trained model to: {model_output_path}")
-        joblib.dump("AFTA_MODEL_SAVED", model_output_path)
+        # Server.run_rounds already writes a valid artifact to backend/final_model.pkl.
+        print(f"Model artifact written to: {model_output_path}")
+        if os.path.exists(model_output_path):
+            mlflow.log_artifact(model_output_path, artifact_path="model")
 
-        mlflow.log_artifact(model_output_path, artifact_path="model")
+            # Optional: upload model to S3 so serving can fetch latest
+            bucket = os.getenv("S3_BUCKET")
+            if bucket:
+                try:
+                    base = os.getenv("S3_PREFIX", "agri").strip().strip("/")
+                    ts = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+                    key = f"{base}/models/final_model_{ts}.pkl"
+                    latest_key = f"{base}/models/final_model_latest.pkl"
+                    s3 = _s3_client()
+                    s3.upload_file(model_output_path, bucket, key)
+                    s3.upload_file(model_output_path, bucket, latest_key)
+                    print("Uploaded model to S3:", key)
+                except Exception as e:
+                    print("⚠️ S3 model upload failed:", e)
 
-        save_state(current_rows)
+        save_state(current_rows, last_s3_key or state.get("last_s3_key"))
 
         print(f"[{datetime.now()}] Retraining completed successfully")
         print("Retrain state updated")

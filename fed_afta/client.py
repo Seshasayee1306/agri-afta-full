@@ -75,6 +75,11 @@ class Client:
         X = self.df[features].fillna(0).values
         y = self.df[target].values
 
+        # Sanitize labels (must be finite 0/1 for logistic objective)
+        y = np.asarray(y, dtype=np.float32)
+        y = np.nan_to_num(y, nan=0.0, posinf=0.0, neginf=0.0)
+        y = np.clip(y, 0.0, 1.0)
+
         # Extract embeddings from TabNet
         emb = self.encoder.get_embeddings(X)
 
@@ -111,7 +116,9 @@ class Client:
             'objective': 'binary:logistic',
             'max_depth': 6,
             'eta': 0.05,
-            'verbosity': 0
+            'verbosity': 0,
+            # Avoid invalid base_score when a client's sampled batch is single-class
+            'base_score': 0.5,
         }
 
         bst = xgb.train(params, dtrain, num_boost_round=200)

@@ -2,9 +2,11 @@ import csv
 import os
 from datetime import datetime
 
+# Store newly-labeled rows separately so we don't corrupt the original training CSV,
+# which contains many extra columns and a different column order.
 DATASET_PATH = os.path.join(
     os.path.dirname(__file__),
-    "../dataset/irrigation_dataset.csv"
+    "../dataset/irrigation_new_labels.csv"
 )
 
 HEADERS = [

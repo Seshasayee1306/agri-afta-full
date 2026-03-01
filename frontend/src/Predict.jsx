@@ -1,56 +1,60 @@
 import React, { useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 export default function Predict() {
-  const [sensorFeatures, setSensorFeatures] = useState("");
   const [sowingDate, setSowingDate] = useState("");
   const [currentDate, setCurrentDate] = useState("");
 
   const [soilMoisture, setSoilMoisture] = useState("");
   const [temperature, setTemperature] = useState("");
-  const [rainfall, setRainfall] = useState("");
+  const [humidity, setHumidity] = useState("");
+  const [ph, setPh] = useState("");
 
   const [region, setRegion] = useState("");
   const [cropType, setCropType] = useState("");
-  const [ndvi, setNdvi] = useState("0.5");
-  const [diseaseStatus, setDiseaseStatus] = useState("None");
-  const [humidity, setHumidity] = useState("");
+  const [soilType, setSoilType] = useState("");
 
   const [result, setResult] = useState(null);
+  const [lastPayload, setLastPayload] = useState(null);
+  const [explainResult, setExplainResult] = useState(null);
+  const [explainLoading, setExplainLoading] = useState(false);
+  const [feedbackStatus, setFeedbackStatus] = useState(null);
+
+  const fetchExplain = async (payload) => {
+    setExplainLoading(true);
+    try {
+      const res = await fetch("http://127.0.0.1:8000/explain", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      setExplainResult(data);
+      try {
+        localStorage.setItem("last_explain_result", JSON.stringify(data));
+      } catch {
+        // ignore storage errors
+      }
+    } catch (err) {
+      console.error(err);
+      setExplainResult({ error: "Explanation failed" });
+    } finally {
+      setExplainLoading(false);
+    }
+  };
 
   const handlePredict = async () => {
-    const arr = sensorFeatures.split(",").map(x => parseFloat(x.trim()));
-
-    if (arr.length !== 12 || arr.some(isNaN)) {
-      alert("Enter exactly 12 valid sensor values");
-      return;
-    }
-
     const payload = {
       sowing_date: sowingDate,
       current_date: currentDate,
       soil_moisture: Number(soilMoisture),
       temperature: Number(temperature),
-      rainfall: Number(rainfall),
-
-      soil_humidity: 50,
-      air_temp: Number(temperature),
-      air_humidity: Number(humidity),
-      ph: 6.5,
-      nitrogen: 40,
-      phosphorus: 30,
-      potassium: 50,
-
-      sensor_features: arr,
-
-      context: {
-        region,
-        crop_type: cropType,
-        ndvi: Number(ndvi),
-        disease_status: diseaseStatus,
-        temperature: Number(temperature),
-        rainfall: Number(rainfall),
-        humidity: Number(humidity)
-      }
+      humidity: Number(humidity),
+      ph: Number(ph),
+      region,
+      crop_type: cropType,
+      soil_type: soilType
     };
 
     try {
@@ -62,45 +66,74 @@ export default function Predict() {
 
       const data = await res.json();
       setResult(data);
+      setExplainResult(null);
+      setFeedbackStatus(null);
+      setLastPayload(payload);
+      try {
+        localStorage.setItem("last_predict_payload", JSON.stringify(payload));
+        localStorage.setItem("last_predict_result", JSON.stringify(data));
+      } catch {
+        // ignore storage errors
+      }
+
+      // Automatically run explanation using the exact same payload as prediction.
+      fetchExplain(payload);
     } catch (err) {
       console.error(err);
       alert("Prediction failed");
     }
   };
 
+  const submitFeedback = async (label) => {
+    if (!lastPayload) {
+      alert("Run prediction first.");
+      return;
+    }
+    setFeedbackStatus("submitting");
+    try {
+      const res = await fetch("http://127.0.0.1:8000/label", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...lastPayload, label }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setFeedbackStatus(`error: ${data?.error || "failed"}`);
+        return;
+      }
+      setFeedbackStatus("saved");
+    } catch (err) {
+      console.error(err);
+      setFeedbackStatus("error: failed");
+    }
+  };
+
+  const handleExplain = async () => {
+    if (!lastPayload) {
+      alert("Run prediction first.");
+      return;
+    }
+    fetchExplain(lastPayload);
+  };
+
   return (
     <div style={{ maxWidth: "900px", margin: "40px auto", fontFamily: "Inter" }}>
       <h2>🌾 Full Intelligent Irrigation System</h2>
-
-      <h3>📡 Sensor Input</h3>
-      <input
-        type="text"
-        placeholder="Enter 12 sensor values comma separated"
-        value={sensorFeatures}
-        onChange={(e) => setSensorFeatures(e.target.value)}
-        style={{ width: "100%", padding: "10px", marginBottom: "10px" }}
-      />
 
       <h3>📅 Crop Stage</h3>
       <input type="date" value={sowingDate} onChange={e => setSowingDate(e.target.value)} />
       <input type="date" value={currentDate} onChange={e => setCurrentDate(e.target.value)} style={{ marginLeft: "10px" }} />
 
-      <h3>🌡 Environmental Data</h3>
-      <input type="number" placeholder="Soil Moisture" value={soilMoisture} onChange={e => setSoilMoisture(e.target.value)} />
-      <input type="number" placeholder="Temperature" value={temperature} onChange={e => setTemperature(e.target.value)} style={{ marginLeft: "10px" }} />
-      <input type="number" placeholder="Rainfall" value={rainfall} onChange={e => setRainfall(e.target.value)} style={{ marginLeft: "10px" }} />
-      <input type="number" placeholder="Humidity" value={humidity} onChange={e => setHumidity(e.target.value)} style={{ marginLeft: "10px" }} />
+      <h3>🌡 Sensor Values</h3>
+      <input type="number" placeholder="Soil Moisture (%)" value={soilMoisture} onChange={e => setSoilMoisture(e.target.value)} />
+      <input type="number" placeholder="Temperature (°C)" value={temperature} onChange={e => setTemperature(e.target.value)} style={{ marginLeft: "10px" }} />
+      <input type="number" placeholder="Humidity (%)" value={humidity} onChange={e => setHumidity(e.target.value)} style={{ marginLeft: "10px" }} />
+      <input type="number" step="0.01" placeholder="pH" value={ph} onChange={e => setPh(e.target.value)} style={{ marginLeft: "10px" }} />
 
-      <h3>🌍 Context Data</h3>
+      <h3>🌍 Context</h3>
       <input type="text" placeholder="Region" value={region} onChange={e => setRegion(e.target.value)} />
       <input type="text" placeholder="Crop Type" value={cropType} onChange={e => setCropType(e.target.value)} style={{ marginLeft: "10px" }} />
-      <input type="number" step="0.01" placeholder="NDVI" value={ndvi} onChange={e => setNdvi(e.target.value)} style={{ marginLeft: "10px" }} />
-
-      <select value={diseaseStatus} onChange={e => setDiseaseStatus(e.target.value)} style={{ marginLeft: "10px" }}>
-        <option value="None">No Disease</option>
-        <option value="Mild">Mild Disease</option>
-        <option value="Severe">Severe Disease</option>
-      </select>
+      <input type="text" placeholder="Soil Type" value={soilType} onChange={e => setSoilType(e.target.value)} style={{ marginLeft: "10px" }} />
 
       <br /><br />
 
@@ -133,9 +166,100 @@ export default function Predict() {
               : "✅ No Irrigation Needed"}
           </h2>
 
-          <h3>
-            💦 Recommended Water: {result.recommended_water_liters} Liters
-          </h3>
+          {result.final_prediction === 1 && (
+            <h3>
+              💦 Recommended Water: {result.recommended_water_liters} Liters
+            </h3>
+          )}
+
+          <div style={{ marginTop: "20px" }}>
+            <h3>✅ Feedback (for retraining)</h3>
+            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+              <button
+                onClick={() => submitFeedback(1)}
+                style={{
+                  padding: "10px 14px",
+                  background: "#16a34a",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "8px",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                }}
+              >
+                It needed irrigation (Label=1)
+              </button>
+              <button
+                onClick={() => submitFeedback(0)}
+                style={{
+                  padding: "10px 14px",
+                  background: "#dc2626",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "8px",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                }}
+              >
+                No irrigation needed (Label=0)
+              </button>
+            </div>
+            {feedbackStatus === "submitting" && (
+              <p style={{ marginTop: "10px" }}>Saving feedback...</p>
+            )}
+            {feedbackStatus === "saved" && (
+              <p style={{ marginTop: "10px" }}>Feedback saved (and sent to S3 if configured).</p>
+            )}
+            {feedbackStatus && feedbackStatus.startsWith("error") && (
+              <p style={{ marginTop: "10px", color: "#b91c1c" }}>{feedbackStatus}</p>
+            )}
+          </div>
+
+          <div style={{ marginTop: "20px" }}>
+            <button
+              onClick={handleExplain}
+              disabled={explainLoading}
+              style={{
+                padding: "10px 18px",
+                background: "#111827",
+                color: "white",
+                border: "none",
+                borderRadius: "8px",
+                fontWeight: "600",
+                cursor: explainLoading ? "not-allowed" : "pointer"
+              }}
+            >
+              {explainLoading ? "⏳ Explaining..." : "🧠 Explain with LLM"}
+            </button>
+          </div>
+
+          {explainResult && (
+            <div style={{ marginTop: "20px" }}>
+              <h3>🧠 Explanation</h3>
+              {explainResult.error && (
+                <pre style={{ whiteSpace: "pre-wrap" }}>{JSON.stringify(explainResult, null, 2)}</pre>
+              )}
+              {explainResult.llm_explanation && (
+                <div
+                  style={{
+                    marginTop: "10px",
+                    padding: "16px",
+                    borderRadius: "12px",
+                    background: "#fff",
+                    border: "1px solid #e2e8f0",
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
+                    lineHeight: "1.7",
+                    fontSize: "16px",
+                    color: "#1e293b",
+                  }}
+                >
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {explainResult.llm_explanation}
+                  </ReactMarkdown>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>

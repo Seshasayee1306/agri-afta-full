@@ -69,6 +69,9 @@ Prediction: {prediction_text}
 SHAP values: {shap_vals.tolist()}
 TabNet masks: {masks.tolist()}
 
+IMPORTANT: Your recommendation MUST be consistent with the Prediction above.
+Do not recommend irrigation if the Prediction says "No irrigation needed".
+
 Explain simply:
 1) Why the model predicted this.
 2) Top 3 most influential features.

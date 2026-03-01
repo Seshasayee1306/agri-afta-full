@@ -3,19 +3,30 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 export default function TestLLM() {
-  const [features, setFeatures] = useState("");
+  const [payloadText, setPayloadText] = useState(() => {
+    try {
+      return localStorage.getItem("last_predict_payload") || "";
+    } catch {
+      return "";
+    }
+  });
   const [result, setResult] = useState(null);
 
   const handleExplain = async () => {
-    if (!features) return;
-
-    const arr = features.split(",").map((x) => parseFloat(x.trim()));
+    if (!payloadText) return;
+    let payload;
+    try {
+      payload = JSON.parse(payloadText);
+    } catch (e) {
+      setResult({ error: "Payload must be valid JSON (copied from Predict page)" });
+      return;
+    }
 
     try {
       const res = await fetch("http://127.0.0.1:8000/explain", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ features: arr }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       setResult(data);
@@ -39,17 +50,18 @@ export default function TestLLM() {
       </h2>
 
       <div style={{ marginTop: "20px" }}>
-        <input
-          type="text"
-          placeholder="Enter 12 comma-separated features"
-          value={features}
-          onChange={(e) => setFeatures(e.target.value)}
+        <textarea
+          placeholder='Paste the JSON payload from the Predict page (auto-filled if available)'
+          value={payloadText}
+          onChange={(e) => setPayloadText(e.target.value)}
+          rows={8}
           style={{
             width: "100%",
             padding: "12px",
-            fontSize: "16px",
+            fontSize: "14px",
             borderRadius: "12px",
             border: "1px solid #d1d5db",
+            fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
           }}
         />
 

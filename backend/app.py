@@ -13,6 +13,248 @@ from backend.data_logger import append_labeled_row
 from backend.utils.sensor_normalizer import normalize
 # 🔹 Context model import (UNCHANGED)
 from backend.context.context_model import context_model
+from backend.context.context_lookup import get_context_lookup
+from backend.imputation_defaults import get_median_defaults
+from backend.s3_logger import make_key, put_json
+
+# AFTA model feature order used by fed_afta/run_fed.py training.
+AFTA_FEATURES_ORDER = [
+    "soil_moisture",
+    "temperature",
+    "soil_humidity",
+    "hour",
+    "dayofyear",
+    "air_temp",
+    "air_humidity",
+    "rainfall",
+    "ph",
+    "nitrogen",
+    "phosphorus",
+    "potassium",
+]
+
+# -----------------------------------------------------
+# INTERNAL: FULL-INTELLIGENT COMPUTE (shared by predict + explain)
+# -----------------------------------------------------
+def _compute_full_intelligent_from_json(json_data):
+    def _to_float(name, val):
+        try:
+            if val is None or (isinstance(val, str) and not val.strip()):
+                return None
+            return float(val)
+        except Exception:
+            raise ValueError(f"Invalid numeric value for '{name}'")
+
+    sowing_date = json_data.get("sowing_date")
+    current_date = json_data.get("current_date")
+    if not sowing_date or not current_date:
+        raise ValueError("Missing sowing_date or current_date")
+
+    days = calculate_days_after_sowing(sowing_date, current_date)
+    stage = identify_growth_stage(days)
+
+    soil_moisture = _to_float("soil_moisture", json_data.get("soil_moisture"))
+    temperature = _to_float("temperature", json_data.get("temperature"))
+    humidity = _to_float("humidity", json_data.get("humidity"))
+    ph = _to_float("ph", json_data.get("ph"))
+    if soil_moisture is None or temperature is None or humidity is None or ph is None:
+        raise ValueError("Missing required numeric inputs: soil_moisture, temperature, humidity, ph")
+
+    region = json_data.get("region") or (json_data.get("context", {}) or {}).get("region")
+    crop_type = json_data.get("crop_type") or (json_data.get("context", {}) or {}).get("crop_type")
+    soil_type = json_data.get("soil_type")
+    if not region or not crop_type or soil_type is None or (isinstance(soil_type, str) and not soil_type.strip()):
+        raise ValueError("Missing required context inputs: region, crop_type, soil_type")
+
+    med = get_median_defaults()
+
+    derived = get_context_lookup().derive(
+        sowing_date=sowing_date,
+        region=str(region),
+        crop_type=str(crop_type),
+        soil_type=str(soil_type) if soil_type is not None else None,
+        soil_moisture=float(soil_moisture),
+        ph=float(ph),
+        temperature=float(temperature),
+        humidity=float(humidity),
+    )
+
+    rainfall_override = _to_float("rainfall", json_data.get("rainfall"))
+    rainfall = float(rainfall_override) if rainfall_override is not None else float(derived.rainfall)
+
+    try:
+        ndvi_val = (json_data.get("context", {}) or {}).get("ndvi", derived.ndvi)
+        ndvi = float(ndvi_val)
+    except Exception:
+        ndvi = float(derived.ndvi)
+    disease_status = (json_data.get("context", {}) or {}).get("disease_status", derived.disease_status)
+
+    air_humidity_override = _to_float("air_humidity", json_data.get("air_humidity"))
+    air_humidity = float(air_humidity_override) if air_humidity_override is not None else float(humidity)
+
+    feature_dict = {
+        "soil_moisture": float(soil_moisture),
+        "temperature": float(temperature),
+        "soil_humidity": float(json_data.get("soil_humidity") or med["soil_humidity"]),
+        "air_temp": float(json_data.get("air_temp") or temperature),
+        "air_humidity": air_humidity,
+        "rainfall": float(rainfall),
+        "ph": float(ph),
+        "nitrogen": float(json_data.get("nitrogen") or med["nitrogen"]),
+        "phosphorus": float(json_data.get("phosphorus") or med["phosphorus"]),
+        "potassium": float(json_data.get("potassium") or med["potassium"]),
+    }
+    stage_prediction = predict_stage(stage, feature_dict)
+
+    # AFTA model expects the same raw feature order used during training (fed_afta/run_fed.py).
+    # We do NOT normalize here because training uses raw values (fillna(0)).
+    sensor_features = json_data.get("sensor_features")
+    if sensor_features is None:
+        # Derive time features from current_date (same payload field already required)
+        try:
+            from datetime import datetime
+            dt = datetime.strptime(current_date, "%Y-%m-%d")
+            hour = float(dt.hour)  # will be 0 for date-only inputs
+            dayofyear = float(dt.timetuple().tm_yday)
+        except Exception:
+            hour = 0.0
+            dayofyear = 1.0
+
+        sensor_features = [
+            float(soil_moisture),              # soil_moisture
+            float(temperature),                # temperature
+            float(feature_dict["soil_humidity"]),  # soil_humidity
+            float(hour),                       # hour
+            float(dayofyear),                  # dayofyear
+            float(feature_dict["air_temp"]),   # air_temp
+            float(feature_dict["air_humidity"]),  # air_humidity
+            float(rainfall),                   # rainfall
+            float(ph),                         # ph
+            float(feature_dict["nitrogen"]),   # nitrogen
+            float(feature_dict["phosphorus"]), # phosphorus
+            float(feature_dict["potassium"]),  # potassium
+        ]
+
+    X = np.asarray(sensor_features, dtype=np.float32).reshape(1, -1)
+    afta_prediction = int(model.predict(X))
+
+    temperature_ctx = float(temperature)
+    rainfall_ctx = float(rainfall)
+    humidity_ctx = float(air_humidity)
+    try:
+        context_score = float(context_model.predict_context_score(
+            region=derived.matched_region,
+            crop_type=derived.matched_crop_type,
+            ndvi=float(ndvi),
+            disease_status=disease_status,
+            temperature=temperature_ctx,
+            rainfall=rainfall_ctx,
+            humidity=humidity_ctx
+        ))
+    except Exception as e:
+        print("Context score unavailable:", e)
+        context_score = 0.5
+
+    stress_index = calculate_stress_index(
+        stage=stage,
+        soil_moisture=feature_dict["soil_moisture"],
+        temperature=feature_dict["temperature"],
+        rainfall=feature_dict["rainfall"],
+        ndvi=float(ndvi)
+    )
+
+    votes = [stage_prediction, afta_prediction]
+    votes.append(1 if context_score >= 0.6 else 0)
+
+    if stress_index >= 0.6:
+        final_prediction = 1
+    elif sum(votes) >= 2:
+        final_prediction = 1
+    else:
+        final_prediction = 0
+
+    if stress_index >= 0.7:
+        irrigation_level = "High"
+        water_liters = 25
+    elif stress_index >= 0.4:
+        irrigation_level = "Medium"
+        water_liters = 15
+    else:
+        irrigation_level = "Low"
+        water_liters = 5
+
+    if final_prediction == 0:
+        irrigation_level = "None"
+        water_liters = 0
+
+    response = {
+        "growth_stage": stage,
+        "stage_model_prediction": stage_prediction,
+        "afta_prediction": afta_prediction,
+        "context_score": round(float(context_score), 3),
+        "final_prediction": final_prediction,
+        "stress_index": stress_index,
+        "irrigation_level": irrigation_level,
+        "recommended_water_liters": water_liters
+    }
+
+    explain_context = {
+        "sowing_date": sowing_date,
+        "current_date": current_date,
+        "days_after_sowing": days,
+        "growth_stage": stage,
+        "region": str(region),
+        "crop_type": str(crop_type),
+        "soil_type": str(soil_type),
+        "matched_farm_id": derived.matched_farm_id,
+        "matched_region": derived.matched_region,
+        "matched_crop_type": derived.matched_crop_type,
+        "ndvi": float(ndvi),
+        "disease_status": disease_status,
+        "derived_rainfall": float(rainfall),
+        "feature_dict": feature_dict,
+        "afta_feature_order": AFTA_FEATURES_ORDER,
+        "afta_sensor_features_12": sensor_features,
+        "stage_model_prediction": stage_prediction,
+        "afta_prediction": afta_prediction,
+        "context_score": float(context_score),
+        "stress_index": float(stress_index),
+        "final_prediction": int(final_prediction),
+        "recommended_water_liters": int(water_liters),
+        "irrigation_level": irrigation_level,
+        "votes": votes,
+    }
+
+    return response, explain_context
+
+
+def _log_predict_to_s3(payload, response, explain_context):
+    try:
+        # keep logs compact + deterministic; do not block prediction on S3 failure
+        key = make_key("predictions", "json")
+        ok = put_json(
+            key=key,
+            payload={
+                "kind": "prediction",
+                "request_payload": payload,
+                "response": response,
+                "explain_context": explain_context,
+            },
+        )
+        if ok and os.getenv("S3_DEBUG") == "1":
+            print("✅ S3 prediction uploaded:", key)
+    except Exception as e:
+        print("⚠️ S3 prediction logging failed:", e)
+
+
+def _log_label_to_s3(labeled_row):
+    try:
+        key = make_key("labeled", "json")
+        ok = put_json(key=key, payload={"kind": "label", **labeled_row})
+        if ok and os.getenv("S3_DEBUG") == "1":
+            print("✅ S3 label uploaded:", key)
+    except Exception as e:
+        print("⚠️ S3 label logging failed:", e)
 
 # =====================================================
 # STRESS INDEX CALCULATION
@@ -52,7 +294,13 @@ CORS(app)
 # LOAD MODEL
 # -----------------------------------------------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-MODEL_PATH = os.path.join(BASE_DIR, "final_model.pkl")
+
+# Prefer a PVC-synced model if present (Kubernetes), else fall back to the repo artifact.
+MODEL_PATH = (
+    os.getenv("AFTA_MODEL_PATH")
+    or ("/models/final_model.pkl" if os.path.exists("/models/final_model.pkl") else None)
+    or os.path.join(BASE_DIR, "final_model.pkl")
+)
 model = ModelWrapper(MODEL_PATH)
 
 # -----------------------------------------------------
@@ -92,25 +340,229 @@ def explain():
     if not json_data:
         return jsonify({"error": "Invalid JSON payload"}), 400
 
-    features = json_data.get("features")
+    def _to_float(name, val):
+        try:
+            if val is None or (isinstance(val, str) and not val.strip()):
+                return None
+            return float(val)
+        except Exception:
+            raise ValueError(f"Invalid numeric value for '{name}'")
+
     feature_names = json_data.get("feature_names")
 
-    if features is None:
-        return jsonify({"error": "Missing 'features' field"}), 400
+    # Backwards compatible:
+    # - old clients send {"features": [...]} (either already-normalized or raw)
+    # - new clients send minimal fields and we deterministically build features
+    features = json_data.get("features")
+    raw_row = None
+    if features is not None:
+        try:
+            features = [float(x) for x in features]
+        except Exception:
+            return jsonify({"error": "Invalid 'features' array"}), 400
 
-    X = np.array(features, dtype=np.float32).reshape(1, -1)
+        if feature_names and len(feature_names) == len(features):
+            raw_row = {feature_names[i]: features[i] for i in range(len(features))}
+        else:
+            raw_row = {f"f{i}": features[i] for i in range(len(features))}
 
-    pred = model.predict(X)
+        # Treat provided features as raw AFTA features by default (matches fed_afta/run_fed.py training).
+        X = np.asarray(features, dtype=np.float32).reshape(1, -1)
+        used_feature_names = feature_names or AFTA_FEATURES_ORDER
+    else:
+        # If the client provides the same payload as /predict_full_intelligent, explain the
+        # full intelligent decision (so explanation matches the prediction page).
+        if json_data.get("current_date") and (
+            json_data.get("region") or (json_data.get("context", {}) or {}).get("region")
+        ):
+            try:
+                full_response, explain_context = _compute_full_intelligent_from_json(json_data)
+            except ValueError as e:
+                return jsonify({"error": str(e)}), 400
+
+            # Use the same 12 AFTA features for embeddings/SHAP placeholders, but explain the final decision.
+            features = explain_context.get("afta_sensor_features_12")
+            used_feature_names = AFTA_FEATURES_ORDER
+            raw_row = dict(explain_context)
+            raw_row["system_response"] = full_response
+            X = np.asarray(features, dtype=np.float32).reshape(1, -1)
+
+            pred = int(full_response["final_prediction"])
+            prediction_text = "Needs water" if pred == 1 else "No irrigation needed"
+
+            emb, proba, _ = model.get_embeddings_and_pred(X)
+            shap_vals = np.zeros((1, len(features)), dtype=np.float32)
+            masks = np.zeros((len(features),), dtype=np.float32)
+
+            explanation = llm_explain(
+                raw_row=raw_row,
+                shap_vals=shap_vals[0],
+                masks=masks,
+                pred=pred
+            )
+
+            return jsonify({
+                "prediction": int(pred),
+                "prediction_text": prediction_text,
+                "probability": float(proba),
+                "feature_names": used_feature_names,
+                "features": [float(x) for x in features],
+                "shap_values": shap_vals[0].tolist(),
+                "tabnet_masks": masks.tolist(),
+                "llm_explanation": explanation,
+                "system_response": full_response,
+            })
+
+        # New minimal-input explain flow: build the same AFTA 12-feature vector as predict_full_intelligent,
+        # and enrich raw_row with context (region/crop/soil), season, and optional stage info.
+        sowing_date = json_data.get("sowing_date")
+        current_date = json_data.get("current_date")
+        region = json_data.get("region") or (json_data.get("context", {}) or {}).get("region")
+        crop_type = json_data.get("crop_type") or (json_data.get("context", {}) or {}).get("crop_type")
+        soil_type = json_data.get("soil_type")
+
+        if not sowing_date or not region or not crop_type or soil_type is None or (isinstance(soil_type, str) and not soil_type.strip()):
+            return jsonify({
+                "error": "Missing required fields for explanation",
+                "required": ["sowing_date", "region", "crop_type", "soil_type"]
+            }), 400
+
+        try:
+            soil_moisture = _to_float("soil_moisture", json_data.get("soil_moisture"))
+            temperature = _to_float("temperature", json_data.get("temperature"))
+            humidity = _to_float("humidity", json_data.get("humidity"))
+            ph = _to_float("ph", json_data.get("ph"))
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+
+        if soil_moisture is None or temperature is None or humidity is None or ph is None:
+            return jsonify({
+                "error": "Missing required fields for explanation",
+                "required": ["soil_moisture", "temperature", "humidity", "ph"]
+            }), 400
+
+        med = get_median_defaults()
+
+        # Optional overrides (if provided, we use them instead of medians/derived context).
+        try:
+            rainfall_override = _to_float("rainfall", json_data.get("rainfall"))
+            soil_humidity_override = _to_float("soil_humidity", json_data.get("soil_humidity"))
+            air_temp_override = _to_float("air_temp", json_data.get("air_temp"))
+            air_humidity_override = _to_float("air_humidity", json_data.get("air_humidity"))
+            wind_speed_override = _to_float("wind_speed", json_data.get("wind_speed"))
+            wind_gust_override = _to_float("wind_gust", json_data.get("wind_gust"))
+            pressure_override = _to_float("pressure_kpa", json_data.get("pressure_kpa"))
+            nitrogen_override = _to_float("nitrogen", json_data.get("nitrogen"))
+            phosphorus_override = _to_float("phosphorus", json_data.get("phosphorus"))
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+
+        derived = get_context_lookup().derive(
+            sowing_date=sowing_date,
+            region=str(region),
+            crop_type=str(crop_type),
+            soil_type=str(soil_type) if soil_type is not None else None,
+            soil_moisture=float(soil_moisture),
+            ph=float(ph),
+            temperature=float(temperature),
+            humidity=float(humidity),
+        )
+
+        rainfall = float(rainfall_override) if rainfall_override is not None else float(derived.rainfall)
+        try:
+            ndvi_val = (json_data.get("context", {}) or {}).get("ndvi", derived.ndvi)
+            ndvi = float(ndvi_val)
+        except Exception:
+            ndvi = float(derived.ndvi)
+        disease_status = (json_data.get("context", {}) or {}).get("disease_status", derived.disease_status)
+
+        soil_humidity = float(soil_humidity_override) if soil_humidity_override is not None else float(med["soil_humidity"])
+        air_temp = float(air_temp_override) if air_temp_override is not None else float(temperature)
+        air_humidity = float(air_humidity_override) if air_humidity_override is not None else float(humidity)
+        wind_speed = float(wind_speed_override) if wind_speed_override is not None else float(med["wind_speed"])
+        wind_gust = float(wind_gust_override) if wind_gust_override is not None else float(med["wind_gust"])
+        pressure_kpa = float(pressure_override) if pressure_override is not None else float(med["pressure_kpa"])
+        nitrogen = float(nitrogen_override) if nitrogen_override is not None else float(med["nitrogen"])
+        phosphorus = float(phosphorus_override) if phosphorus_override is not None else float(med["phosphorus"])
+
+        # Keep AFTA features consistent with the trained order.
+        # Derive hour/dayofyear from current_date if available; else use safe defaults.
+        try:
+            from datetime import datetime
+            dt = datetime.strptime(current_date, "%Y-%m-%d") if current_date else None
+            hour = float(dt.hour) if dt else 0.0
+            dayofyear = float(dt.timetuple().tm_yday) if dt else 1.0
+        except Exception:
+            hour = 0.0
+            dayofyear = 1.0
+
+        features = [
+            float(soil_moisture),
+            float(temperature),
+            float(soil_humidity),
+            float(hour),
+            float(dayofyear),
+            float(air_temp),
+            float(air_humidity),
+            float(rainfall),
+            float(ph),
+            float(nitrogen),
+            float(phosphorus),
+            float(med["potassium"]),
+        ]
+        used_feature_names = AFTA_FEATURES_ORDER
+        raw_row = {used_feature_names[i]: features[i] for i in range(len(features))}
+
+        growth_stage = None
+        days_after_sowing = None
+        if current_date:
+            try:
+                days_after_sowing = calculate_days_after_sowing(sowing_date, current_date)
+                growth_stage = identify_growth_stage(days_after_sowing)
+            except Exception:
+                days_after_sowing = None
+                growth_stage = None
+
+        # Compute context score so LLM can explain how region/crop/ndvi/disease/rainfall affect risk.
+        try:
+            context_score = float(context_model.predict_context_score(
+                region=derived.matched_region,
+                crop_type=derived.matched_crop_type,
+                ndvi=float(ndvi),
+                disease_status=disease_status,
+                temperature=float(temperature),
+                rainfall=float(rainfall),
+                humidity=float(air_humidity),
+            ))
+        except Exception as e:
+            print("Context score unavailable in explain:", e)
+            context_score = None
+
+        raw_row.update({
+            "sowing_date": sowing_date,
+            "current_date": current_date,
+            "days_after_sowing": days_after_sowing,
+            "growth_stage": growth_stage,
+            "region": str(region),
+            "crop_type": str(crop_type),
+            "soil_type": str(soil_type) if soil_type is not None else None,
+            "derived_rainfall_source": "smart_farming_best_row",
+            "matched_farm_id": derived.matched_farm_id,
+            "matched_region": derived.matched_region,
+            "matched_crop_type": derived.matched_crop_type,
+            "ndvi": float(ndvi),
+            "disease_status": disease_status,
+            "context_score": context_score,
+        })
+        X = np.asarray(features, dtype=np.float32).reshape(1, -1)
+
+    pred = int(model.predict(X))
     prediction_text = "Needs water" if pred == 1 else "No irrigation needed"
 
     emb, proba, _ = model.get_embeddings_and_pred(X)
-    shap_vals = shap_contribs(model.head, emb)
-    masks = tabnet_masks(model.encoder, X)
-
-    if feature_names and len(feature_names) == len(features):
-        raw_row = {feature_names[i]: features[i] for i in range(len(features))}
-    else:
-        raw_row = {f"f{i}": features[i] for i in range(len(features))}
+    # Production-safe fallback explanations: keep lengths aligned to input features.
+    shap_vals = np.zeros((1, len(features)), dtype=np.float32)
+    masks = np.zeros((len(features),), dtype=np.float32)
 
     explanation = llm_explain(
         raw_row=raw_row,
@@ -123,6 +575,8 @@ def explain():
         "prediction": int(pred),
         "prediction_text": prediction_text,
         "probability": float(proba),
+        "feature_names": used_feature_names,
+        "features": [float(x) for x in features],
         "shap_values": shap_vals[0].tolist(),
         "tabnet_masks": masks.tolist(),
         "llm_explanation": explanation
@@ -137,14 +591,62 @@ def label_data():
     if not data:
         return jsonify({"error": "Invalid JSON"}), 400
 
-    features = data.get("features")
     label = data.get("label")
+    if label is None:
+        return jsonify({"error": "Missing label"}), 400
 
-    if features is None or label is None:
-        return jsonify({"error": "Missing features or label"}), 400
+    try:
+        label_int = int(label)
+    except Exception:
+        return jsonify({"error": "Label must be 0 or 1"}), 400
 
-    append_labeled_row(features, label)
-    return jsonify({"status": "Data appended successfully"})
+    if label_int not in (0, 1):
+        return jsonify({"error": "Label must be 0 or 1"}), 400
+
+    # Accept either:
+    # - legacy: {"features":[..12..], "label":0/1}
+    # - new: same payload as /predict_full_intelligent + "label"
+    features = data.get("features")
+    if features is not None:
+        if not isinstance(features, list) or len(features) != 12:
+            return jsonify({"error": "Expected exactly 12 features"}), 400
+        try:
+            features = [float(x) for x in features]
+        except Exception:
+            return jsonify({"error": "Invalid features array"}), 400
+        append_labeled_row(features, label_int)
+        _log_label_to_s3({
+            "features_order": AFTA_FEATURES_ORDER,
+            "features": features,
+            "label": label_int,
+            "source": "client_features",
+        })
+        return jsonify({"status": "Labeled data appended successfully"})
+
+    # New flow: build the exact AFTA features used in prediction and attach label.
+    try:
+        _, explain_context = _compute_full_intelligent_from_json(data)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
+    afta_features = explain_context.get("afta_sensor_features_12")
+    if not afta_features or len(afta_features) != 12:
+        return jsonify({"error": "Unable to build AFTA features for labeling"}), 400
+
+    append_labeled_row(afta_features, label_int)
+    _log_label_to_s3({
+        "features_order": AFTA_FEATURES_ORDER,
+        "features": afta_features,
+        "label": label_int,
+        "source": "derived_from_payload",
+        "context": {
+            "region": explain_context.get("region"),
+            "crop_type": explain_context.get("crop_type"),
+            "soil_type": explain_context.get("soil_type"),
+            "growth_stage": explain_context.get("growth_stage"),
+        },
+    })
+    return jsonify({"status": "Labeled data appended successfully"})
 
 # -----------------------------------------------------
 # PROMETHEUS METRICS
@@ -292,104 +794,20 @@ def predict_full_intelligent():
     if not json_data:
         return jsonify({"error": "Invalid JSON payload"}), 400
 
-    sowing_date = json_data.get("sowing_date")
-    current_date = json_data.get("current_date")
-
-    if not sowing_date or not current_date:
-        return jsonify({"error": "Missing sowing_date or current_date"}), 400
-
-    days = calculate_days_after_sowing(sowing_date, current_date)
-    stage = identify_growth_stage(days)
-
-    feature_dict = {
-        "soil_moisture": json_data.get("soil_moisture"),
-        "temperature": json_data.get("temperature"),
-        "soil_humidity": json_data.get("soil_humidity"),
-        "air_temp": json_data.get("air_temp"),
-        "air_humidity": json_data.get("air_humidity"),
-        "rainfall": json_data.get("rainfall"),
-        "ph": json_data.get("ph"),
-        "nitrogen": json_data.get("nitrogen"),
-        "phosphorus": json_data.get("phosphorus"),
-        "potassium": json_data.get("potassium")
-    }
-
-    stage_prediction = predict_stage(stage, feature_dict)
-
-    sensor_features = json_data.get("sensor_features")
-    if sensor_features is None:
-        return jsonify({"error": "Missing sensor_features for AFTA model"}), 400
-
-    X = normalize(sensor_features).reshape(1, -1)
-    afta_prediction = int(model.predict(X))
-
-    context = json_data.get("context", {})
-
-    region = context.get("region", "Unknown")
-    crop_type = context.get("crop_type", "Unknown")
-    ndvi = float(context.get("ndvi", 0.5))
-    disease_status = context.get("disease_status", "None")
-    temperature_ctx = float(context.get("temperature", 25))
-    rainfall_ctx = float(context.get("rainfall", 100))
-    humidity_ctx = float(context.get("humidity", 60))
-
     try:
-        context_score = context_model.predict_context_score(
-            region=region,
-            crop_type=crop_type,
-            ndvi=ndvi,
-            disease_status=disease_status,
-            temperature=temperature_ctx,
-            rainfall=rainfall_ctx,
-            humidity=humidity_ctx
-        )
-    except Exception as e:
-        print("Context model not available:", e)
-        context_score = 0.5
+        response, explain_context = _compute_full_intelligent_from_json(json_data)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
 
-    # ✅ FIX: Stress index calculated BEFORE decision logic
-    stress_index = calculate_stress_index(
-        stage=stage,
-        soil_moisture=feature_dict["soil_moisture"],
-        temperature=feature_dict["temperature"],
-        rainfall=feature_dict["rainfall"],
-        ndvi=ndvi
-    )
+    # Terminal logs: show all filled values + sources (not returned to frontend)
+    print("\n[Full Intelligent Prediction] Filled inputs")
+    # explain_context is already a fully expanded record; keep logs stable and readable.
+    print(explain_context)
+    print(" fixed_medians_source: irrigation_dataset/irrigation_stage_dataset\n")
 
-    votes = [stage_prediction, afta_prediction]
+    _log_predict_to_s3(json_data, response, explain_context)
 
-    if context_score >= 0.6:
-        votes.append(1)
-    else:
-        votes.append(0)
-
-    if stress_index >= 0.6:
-        final_prediction = 1
-    elif sum(votes) >= 2:
-        final_prediction = 1
-    else:
-        final_prediction = 0
-
-    if stress_index >= 0.7:
-        irrigation_level = "High"
-        water_liters = 25
-    elif stress_index >= 0.4:
-        irrigation_level = "Medium"
-        water_liters = 15
-    else:
-        irrigation_level = "Low"
-        water_liters = 5
-
-    return jsonify({
-        "growth_stage": stage,
-        "stage_model_prediction": stage_prediction,
-        "afta_prediction": afta_prediction,
-        "context_score": round(float(context_score), 3),
-        "final_prediction": final_prediction,
-        "stress_index": stress_index,
-        "irrigation_level": irrigation_level,
-        "recommended_water_liters": water_liters
-    })
+    return jsonify(response)
 
 from flask import send_from_directory, render_template
 

@@ -19,10 +19,46 @@ spec:
           containers:
             - name: retrain
               image: sesha1306/agri-backend:latest
-              command:
-                - python
-                - /app/retrain/retrain.py
-
+              imagePullPolicy: IfNotPresent
+              command: ["python3", "/app/backend/retrain/retrain.py"]
               env:
                 - name: PYTHONUNBUFFERED
                   value: "1"
+                - name: AWS_REGION
+                  valueFrom:
+                    secretKeyRef:
+                      name: aws-s3-secret
+                      key: AWS_REGION
+                - name: S3_BUCKET
+                  valueFrom:
+                    secretKeyRef:
+                      name: aws-s3-secret
+                      key: S3_BUCKET
+                - name: S3_PREFIX
+                  valueFrom:
+                    secretKeyRef:
+                      name: aws-s3-secret
+                      key: S3_PREFIX
+                - name: AWS_ACCESS_KEY_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: aws-s3-secret
+                      key: AWS_ACCESS_KEY_ID
+                - name: AWS_SECRET_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: aws-s3-secret
+                      key: AWS_SECRET_ACCESS_KEY
+                - name: AWS_SESSION_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: aws-s3-secret
+                      key: AWS_SESSION_TOKEN
+                      optional: true
+              volumeMounts:
+                - name: retrain-state
+                  mountPath: /app/retrain_state
+
+          volumes:
+            - name: retrain-state
+              emptyDir: {}

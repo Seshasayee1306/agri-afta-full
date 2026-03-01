@@ -5,6 +5,8 @@ metadata:
 spec:
   accessModes:
     - ReadWriteOnce
+  # Uses the cluster's default StorageClass (recommended for local docker-desktop too).
+  # Set storageClassName explicitly if your cluster doesn't have a default.
   resources:
     requests:
       storage: 1Gi

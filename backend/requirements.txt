@@ -7,6 +7,7 @@ torch
 shap == 0.49.1
 joblib
 groq
+boto3
 flask
 flask-cors
 python-dotenv

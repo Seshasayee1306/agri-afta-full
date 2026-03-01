@@ -12,9 +12,55 @@ spec:
       labels:
         app: agri-backend
     spec:
+      initContainers:
+        - name: fetch-latest-model
+          image: sesha1306/agri-backend:latest
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "backend.s3_model_sync"]
+          env:
+            - name: AWS_REGION
+              valueFrom:
+                secretKeyRef:
+                  name: aws-s3-secret
+                  key: AWS_REGION
+            - name: S3_BUCKET
+              valueFrom:
+                secretKeyRef:
+                  name: aws-s3-secret
+                  key: S3_BUCKET
+            - name: S3_PREFIX
+              valueFrom:
+                secretKeyRef:
+                  name: aws-s3-secret
+                  key: S3_PREFIX
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: aws-s3-secret
+                  key: AWS_ACCESS_KEY_ID
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: aws-s3-secret
+                  key: AWS_SECRET_ACCESS_KEY
+            - name: AWS_SESSION_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: aws-s3-secret
+                  key: AWS_SESSION_TOKEN
+                  optional: true
+            - name: MODEL_DEST_PATH
+              value: /models/final_model.pkl
+            # If set to "1", the pod will fail to start if the model is not downloadable.
+            - name: MODEL_SYNC_STRICT
+              value: "0"
+          volumeMounts:
+            - name: model-store
+              mountPath: /models
       containers:
         - name: backend
           image: sesha1306/agri-backend:latest
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8000
           env:
@@ -23,6 +69,37 @@ spec:
                 secretKeyRef:
                   name: groq-secret
                   key: api-key
+            - name: AWS_REGION
+              valueFrom:
+                secretKeyRef:
+                  name: aws-s3-secret
+                  key: AWS_REGION
+            - name: S3_BUCKET
+              valueFrom:
+                secretKeyRef:
+                  name: aws-s3-secret
+                  key: S3_BUCKET
+            - name: S3_PREFIX
+              valueFrom:
+                secretKeyRef:
+                  name: aws-s3-secret
+                  key: S3_PREFIX
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: aws-s3-secret
+                  key: AWS_ACCESS_KEY_ID
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: aws-s3-secret
+                  key: AWS_SECRET_ACCESS_KEY
+            - name: AWS_SESSION_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: aws-s3-secret
+                  key: AWS_SESSION_TOKEN
+                  optional: true
           volumeMounts:                       # ✅ REQUIRED
             - name: model-store
               mountPath: /models

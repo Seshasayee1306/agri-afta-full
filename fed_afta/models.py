@@ -140,6 +140,18 @@ class SimpleTorchEncoder(nn.Module):
     # Load saved weights back
     # -------------------------------
     def load_state_dict(self, state_dict):
+        # Support older artifacts that store ONLY the encoder network weights
+        # with un-prefixed keys like "0.weight", "0.bias", "2.weight", ...
+        if isinstance(state_dict, dict) and state_dict and not any(
+            str(k).startswith(("network_", "classifier_")) for k in state_dict.keys()
+        ):
+            try:
+                self.network_.load_state_dict(state_dict, strict=False)
+                return
+            except Exception:
+                # Fall through to the prefixed-loader path
+                pass
+
         net_sd = {}
         cls_sd = {}
 
