@@ -19,3 +19,7 @@ __pycache__/
 node_modules/
 frontend/node_modules/
 **/node_modules/
+
+# Kubernetes secrets (do not commit real credentials)
+k8s/aws-s3-secret.yaml
+k8s/groq-secret.yaml
