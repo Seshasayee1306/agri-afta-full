@@ -5,20 +5,18 @@ import numpy as np
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_DIR = os.path.join(BASE_DIR, "stage_models")
 
-
 def load_stage_model(stage):
     model_path = os.path.join(MODEL_DIR, f"{stage}_model.pkl")
-
-    if not os.path.exists(model_path):
-        raise FileNotFoundError(f"Stage model not found: {model_path}")
-
-    return joblib.load(model_path)
-
+    if os.path.exists(model_path):
+        return joblib.load(model_path)
+    global_path = os.path.join(MODEL_DIR, "global_model.pkl")
+    if os.path.exists(global_path):
+        return joblib.load(global_path)
+    raise FileNotFoundError(f"No model found for stage={stage} and no global fallback")
 
 def predict_stage(stage, feature_dict):
-    model = load_stage_model(stage)
-
-    features = np.array([[
+    artifact = load_stage_model(stage)
+    X = np.array([[
         feature_dict["soil_moisture"],
         feature_dict["temperature"],
         feature_dict["soil_humidity"],
@@ -29,6 +27,12 @@ def predict_stage(stage, feature_dict):
         feature_dict["nitrogen"],
         feature_dict["phosphorus"],
         feature_dict["potassium"]
-    ]])
+    ]], dtype=float)
 
-    return int(model.predict(features)[0])
+    if isinstance(artifact, dict) and "model" in artifact:
+        model = artifact["model"]
+        threshold = float(artifact.get("threshold", 0.5))
+        prob = float(model.predict_proba(X)[0, 1])
+        return int(prob >= threshold)
+
+    return int(artifact.predict(X)[0])
