@@ -33,6 +33,49 @@ AFTA_FEATURES_ORDER = [
     "potassium",
 ]
 
+# Stage-personalized (local) AFTA models were trained with this order
+# in backend/train_stage_afta.py and backend/evaluate_models.py.
+LOCAL_STAGE_AFTA_FEATURES_ORDER = [
+    "soil_moisture",
+    "temperature",
+    "soil_humidity",
+    "air_temp",
+    "air_humidity",
+    "rainfall",
+    "ph",
+    "nitrogen",
+    "phosphorus",
+    "potassium",
+    "hour",
+    "dayofyear",
+]
+
+# AFTA calibration knobs (can be overridden via env).
+# Using an uncertainty band helps reduce both false positives and false negatives
+# by avoiding hard decisions near 0.5 without extra evidence.
+AFTA_GLOBAL_WEIGHT = float(os.getenv("AFTA_GLOBAL_WEIGHT", "0.45"))
+AFTA_LOCAL_WEIGHT = float(os.getenv("AFTA_LOCAL_WEIGHT", "0.55"))
+AFTA_LOW_THRESHOLD = float(os.getenv("AFTA_LOW_THRESHOLD", "0.42"))
+AFTA_HIGH_THRESHOLD = float(os.getenv("AFTA_HIGH_THRESHOLD", "0.58"))
+AFTA_TIEBREAK_THRESHOLD = float(os.getenv("AFTA_TIEBREAK_THRESHOLD", "0.48"))
+
+
+def _build_local_stage_features(feature_dict, hour, dayofyear):
+    return [
+        float(feature_dict["soil_moisture"]),
+        float(feature_dict["temperature"]),
+        float(feature_dict["soil_humidity"]),
+        float(feature_dict["air_temp"]),
+        float(feature_dict["air_humidity"]),
+        float(feature_dict["rainfall"]),
+        float(feature_dict["ph"]),
+        float(feature_dict["nitrogen"]),
+        float(feature_dict["phosphorus"]),
+        float(feature_dict["potassium"]),
+        float(hour),
+        float(dayofyear),
+    ]
+
 # -----------------------------------------------------
 # INTERNAL: FULL-INTELLIGENT COMPUTE (shared by predict + explain)
 # -----------------------------------------------------
@@ -136,7 +179,241 @@ def _compute_full_intelligent_from_json(json_data):
         ]
 
     X = np.asarray(sensor_features, dtype=np.float32).reshape(1, -1)
-    afta_prediction = int(model.predict(X))
+    global_afta_proba = float(model.predict_proba(X)[0])
+    global_afta_prediction = int(global_afta_proba >= 0.5)
+
+    local_model_name = f"{stage}_afta"
+    local_model_available = stage in local_stage_afta_models
+    local_afta_prediction = global_afta_prediction
+    local_afta_proba = global_afta_proba
+
+    if local_model_available:
+        local_stage_features = _build_local_stage_features(
+            feature_dict=feature_dict,
+            hour=float(sensor_features[3]),
+            dayofyear=float(sensor_features[4]),
+        )
+        X_local = np.asarray(local_stage_features, dtype=np.float32).reshape(1, -1)
+        try:
+            local_afta_proba = float(local_stage_afta_models[stage].predict_proba(X_local)[0])
+            local_afta_prediction = int(local_afta_proba >= 0.5)
+        except Exception as e:
+            print(f"[AFTA] local model fallback to global for stage={stage}: {e}")
+            local_afta_proba = global_afta_proba
+            local_afta_prediction = global_afta_prediction
+            local_model_available = False
+
+    w_sum = max(AFTA_GLOBAL_WEIGHT + AFTA_LOCAL_WEIGHT, 1e-6)
+    combined_afta_proba = (
+        (AFTA_GLOBAL_WEIGHT * global_afta_proba) +
+        (AFTA_LOCAL_WEIGHT * local_afta_proba)
+    ) / w_sum
+
+    temperature_ctx = float(temperature)
+    rainfall_ctx = float(rainfall)
+    humidity_ctx = float(air_humidity)
+    try:
+        context_score = float(context_model.predict_context_score(
+            region=derived.matched_region,
+            crop_type=derived.matched_crop_type,
+            ndvi=float(ndvi),
+            disease_status=disease_status,
+            temperature=temperature_ctx,
+            rainfall=rainfall_ctx,
+            humidity=humidity_ctx
+        ))
+    except Exception as e:
+        print("Context score unavailable:", e)
+        context_score = 0.5
+
+    # Calibrated AFTA decision:
+    # - high confidence positive above upper threshold
+    # - high confidence negative below lower threshold
+    # - in uncertain zone, require extra support from stage/context to call positive
+    afta_decision_mode = "confident_negative"
+    if combined_afta_proba >= AFTA_HIGH_THRESHOLD:
+        afta_prediction = 1
+        afta_decision_mode = "confident_positive"
+    elif combined_afta_proba <= AFTA_LOW_THRESHOLD:
+        afta_prediction = 0
+        afta_decision_mode = "confident_negative"
+    else:
+        support_votes = int(stage_prediction) + (1 if context_score >= 0.6 else 0)
+        afta_prediction = 1 if (combined_afta_proba >= AFTA_TIEBREAK_THRESHOLD and support_votes >= 1) else 0
+        afta_decision_mode = "uncertain_tiebreak"
+
+    stress_index = calculate_stress_index(
+        stage=stage,
+        soil_moisture=feature_dict["soil_moisture"],
+        temperature=feature_dict["temperature"],
+        rainfall=feature_dict["rainfall"],
+        ndvi=float(ndvi)
+    )
+
+    votes = [stage_prediction, afta_prediction]
+    votes.append(1 if context_score >= 0.6 else 0)
+
+    if stress_index >= 0.6:
+        final_prediction = 1
+    elif sum(votes) >= 2:
+        final_prediction = 1
+    else:
+        final_prediction = 0
+
+    if stress_index >= 0.7:
+        irrigation_level = "High"
+        water_liters = 25
+    elif stress_index >= 0.4:
+        irrigation_level = "Medium"
+        water_liters = 15
+    else:
+        irrigation_level = "Low"
+        water_liters = 5
+
+    if final_prediction == 0:
+        irrigation_level = "None"
+        water_liters = 0
+
+    response = {
+        "growth_stage": stage,
+        "stage_model_prediction": stage_prediction,
+        "afta_prediction": afta_prediction,
+        "afta_global_prediction": global_afta_prediction,
+        "afta_local_prediction": local_afta_prediction,
+        "afta_combined_prediction": afta_prediction,
+        "afta_global_probability": round(global_afta_proba, 4),
+        "afta_local_probability": round(local_afta_proba, 4),
+        "afta_combined_probability": round(combined_afta_proba, 4),
+        "afta_decision_mode": afta_decision_mode,
+        "afta_local_model_name": local_model_name,
+        "afta_local_model_available": bool(local_model_available),
+        "context_score": round(float(context_score), 3),
+        "final_prediction": final_prediction,
+        "stress_index": stress_index,
+        "irrigation_level": irrigation_level,
+        "recommended_water_liters": water_liters
+    }
+
+    explain_context = {
+        "sowing_date": sowing_date,
+        "current_date": current_date,
+        "days_after_sowing": days,
+        "growth_stage": stage,
+        "region": str(region),
+        "crop_type": str(crop_type),
+        "soil_type": str(soil_type),
+        "matched_farm_id": derived.matched_farm_id,
+        "matched_region": derived.matched_region,
+        "matched_crop_type": derived.matched_crop_type,
+        "ndvi": float(ndvi),
+        "disease_status": disease_status,
+        "derived_rainfall": float(rainfall),
+        "feature_dict": feature_dict,
+        "afta_feature_order": AFTA_FEATURES_ORDER,
+        "afta_local_feature_order": LOCAL_STAGE_AFTA_FEATURES_ORDER,
+        "afta_sensor_features_12": sensor_features,
+        "afta_local_model_name": local_model_name,
+        "afta_local_model_available": bool(local_model_available),
+        "afta_global_prediction": global_afta_prediction,
+        "afta_local_prediction": local_afta_prediction,
+        "afta_combined_prediction": afta_prediction,
+        "afta_global_probability": float(global_afta_proba),
+        "afta_local_probability": float(local_afta_proba),
+        "afta_combined_probability": float(combined_afta_proba),
+        "afta_decision_mode": afta_decision_mode,
+        "afta_thresholds": {
+            "low": float(AFTA_LOW_THRESHOLD),
+            "high": float(AFTA_HIGH_THRESHOLD),
+            "tiebreak": float(AFTA_TIEBREAK_THRESHOLD),
+        },
+        "stage_model_prediction": stage_prediction,
+        "afta_prediction": afta_prediction,
+        "context_score": float(context_score),
+        "stress_index": float(stress_index),
+        "final_prediction": int(final_prediction),
+        "recommended_water_liters": int(water_liters),
+        "irrigation_level": irrigation_level,
+        "votes": votes,
+    }
+
+    return response, explain_context
+
+
+def _compute_hybrid_from_edge_afta(json_data):
+    def _to_float(name, val):
+        try:
+            if val is None or (isinstance(val, str) and not val.strip()):
+                return None
+            return float(val)
+        except Exception:
+            raise ValueError(f"Invalid numeric value for '{name}'")
+
+    sowing_date = json_data.get("sowing_date")
+    current_date = json_data.get("current_date")
+    if not sowing_date or not current_date:
+        raise ValueError("Missing sowing_date or current_date")
+
+    try:
+        afta_prediction = int(json_data.get("afta_prediction"))
+    except Exception:
+        raise ValueError("Missing or invalid afta_prediction (expected 0 or 1)")
+    if afta_prediction not in (0, 1):
+        raise ValueError("Missing or invalid afta_prediction (expected 0 or 1)")
+
+    days = calculate_days_after_sowing(sowing_date, current_date)
+    stage = identify_growth_stage(days)
+
+    soil_moisture = _to_float("soil_moisture", json_data.get("soil_moisture"))
+    temperature = _to_float("temperature", json_data.get("temperature"))
+    humidity = _to_float("humidity", json_data.get("humidity"))
+    ph = _to_float("ph", json_data.get("ph"))
+    if soil_moisture is None or temperature is None or humidity is None or ph is None:
+        raise ValueError("Missing required numeric inputs: soil_moisture, temperature, humidity, ph")
+
+    region = json_data.get("region") or (json_data.get("context", {}) or {}).get("region")
+    crop_type = json_data.get("crop_type") or (json_data.get("context", {}) or {}).get("crop_type")
+    soil_type = json_data.get("soil_type")
+    if not region or not crop_type or soil_type is None or (isinstance(soil_type, str) and not soil_type.strip()):
+        raise ValueError("Missing required context inputs: region, crop_type, soil_type")
+
+    med = get_median_defaults()
+    derived = get_context_lookup().derive(
+        sowing_date=sowing_date,
+        region=str(region),
+        crop_type=str(crop_type),
+        soil_type=str(soil_type) if soil_type is not None else None,
+        soil_moisture=float(soil_moisture),
+        ph=float(ph),
+        temperature=float(temperature),
+        humidity=float(humidity),
+    )
+
+    rainfall_override = _to_float("rainfall", json_data.get("rainfall"))
+    rainfall = float(rainfall_override) if rainfall_override is not None else float(derived.rainfall)
+
+    try:
+        ndvi_val = (json_data.get("context", {}) or {}).get("ndvi", derived.ndvi)
+        ndvi = float(ndvi_val)
+    except Exception:
+        ndvi = float(derived.ndvi)
+    disease_status = (json_data.get("context", {}) or {}).get("disease_status", derived.disease_status)
+
+    air_humidity_override = _to_float("air_humidity", json_data.get("air_humidity"))
+    air_humidity = float(air_humidity_override) if air_humidity_override is not None else float(humidity)
+
+    feature_dict = {
+        "soil_moisture": float(soil_moisture),
+        "temperature": float(temperature),
+        "soil_humidity": float(json_data.get("soil_humidity") or med["soil_humidity"]),
+        "air_temp": float(json_data.get("air_temp") or temperature),
+        "air_humidity": air_humidity,
+        "rainfall": float(rainfall),
+        "ph": float(ph),
+        "nitrogen": float(json_data.get("nitrogen") or med["nitrogen"]),
+        "phosphorus": float(json_data.get("phosphorus") or med["phosphorus"]),
+        "potassium": float(json_data.get("potassium") or med["potassium"]),
+    }
+    stage_prediction = int(predict_stage(stage, feature_dict))
 
     temperature_ctx = float(temperature)
     rainfall_ctx = float(rainfall)
@@ -190,42 +467,15 @@ def _compute_full_intelligent_from_json(json_data):
     response = {
         "growth_stage": stage,
         "stage_model_prediction": stage_prediction,
-        "afta_prediction": afta_prediction,
+        "afta_prediction": int(afta_prediction),
         "context_score": round(float(context_score), 3),
-        "final_prediction": final_prediction,
+        "final_prediction": int(final_prediction),
         "stress_index": stress_index,
         "irrigation_level": irrigation_level,
-        "recommended_water_liters": water_liters
-    }
-
-    explain_context = {
-        "sowing_date": sowing_date,
-        "current_date": current_date,
-        "days_after_sowing": days,
-        "growth_stage": stage,
-        "region": str(region),
-        "crop_type": str(crop_type),
-        "soil_type": str(soil_type),
-        "matched_farm_id": derived.matched_farm_id,
-        "matched_region": derived.matched_region,
-        "matched_crop_type": derived.matched_crop_type,
-        "ndvi": float(ndvi),
-        "disease_status": disease_status,
-        "derived_rainfall": float(rainfall),
-        "feature_dict": feature_dict,
-        "afta_feature_order": AFTA_FEATURES_ORDER,
-        "afta_sensor_features_12": sensor_features,
-        "stage_model_prediction": stage_prediction,
-        "afta_prediction": afta_prediction,
-        "context_score": float(context_score),
-        "stress_index": float(stress_index),
-        "final_prediction": int(final_prediction),
         "recommended_water_liters": int(water_liters),
-        "irrigation_level": irrigation_level,
-        "votes": votes,
+        "inference_source": "edge_afta_plus_backend_stage"
     }
-
-    return response, explain_context
+    return response
 
 
 def _log_predict_to_s3(payload, response, explain_context):
@@ -302,6 +552,28 @@ MODEL_PATH = (
     or os.path.join(BASE_DIR, "final_model.pkl")
 )
 model = ModelWrapper(MODEL_PATH)
+
+LOCAL_STAGE_AFTA_DIR = os.path.join(BASE_DIR, "stage_afta_models")
+
+
+def _load_local_stage_afta_models():
+    models = {}
+    for stage in ("germination", "vegetative", "flowering", "harvest"):
+        path = os.path.join(LOCAL_STAGE_AFTA_DIR, f"{stage}_afta.pkl")
+        if not os.path.exists(path):
+            continue
+        try:
+            models[stage] = ModelWrapper(path)
+        except Exception as e:
+            print(f"[AFTA] failed to load local model {path}: {e}")
+    return models
+
+
+local_stage_afta_models = _load_local_stage_afta_models()
+print(
+    "[AFTA] loaded local stage models:",
+    sorted(local_stage_afta_models.keys()) if local_stage_afta_models else "none",
+)
 
 # -----------------------------------------------------
 # ROOT
@@ -806,6 +1078,20 @@ def predict_full_intelligent():
     print(" fixed_medians_source: irrigation_dataset/irrigation_stage_dataset\n")
 
     _log_predict_to_s3(json_data, response, explain_context)
+
+    return jsonify(response)
+
+
+@app.route("/predict_edge_afta", methods=["POST"])
+def predict_edge_afta():
+    json_data = request.get_json(silent=True)
+    if not json_data:
+        return jsonify({"error": "Invalid JSON payload"}), 400
+
+    try:
+        response = _compute_hybrid_from_edge_afta(json_data)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
 
     return jsonify(response)
 

@@ -1,6 +1,8 @@
 import warnings
 warnings.filterwarnings("ignore")
 
+from pathlib import Path
+
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -14,15 +16,24 @@ from backend.utils.sensor_normalizer import normalize
 print("Evaluation script started...")
 
 # -----------------------------------------
+# PATHS (run from repo root via `python -m backend.evaluate_models`)
+# -----------------------------------------
+REPO_ROOT = Path(__file__).resolve().parents[1]
+DATASET_PATH = REPO_ROOT / "dataset" / "irrigation_stage_dataset.csv"
+MAIN_MODEL_PATH = REPO_ROOT / "backend" / "final_model.pkl"
+STAGE_AFTA_DIR = REPO_ROOT / "backend" / "stage_afta_models"
+STATIC_DIR = REPO_ROOT / "backend" / "static"
+
+# -----------------------------------------
 # LOAD DATASET
 # -----------------------------------------
-df = pd.read_csv("dataset/irrigation_stage_dataset.csv")
+df = pd.read_csv(DATASET_PATH)
 df = df.fillna(df.mean(numeric_only=True))
 
 # -----------------------------------------
 # LOAD MAIN AFTA MODEL
 # -----------------------------------------
-model = ModelWrapper("final_model.pkl")
+model = ModelWrapper(str(MAIN_MODEL_PATH))
 
 # -----------------------------------------
 # PRELOAD STAGE AFTA MODELS
@@ -31,11 +42,8 @@ unique_stages = df["growth_stage"].unique()
 stage_models = {}
 
 for s in unique_stages:
-    stage_model_path = os.path.join(
-    "stage_afta_models",
-    f"{s}_afta.pkl"
-)
-    stage_models[s] = ModelWrapper(stage_model_path)
+    stage_model_path = STAGE_AFTA_DIR / f"{s}_afta.pkl"
+    stage_models[s] = ModelWrapper(str(stage_model_path))
 
 print("Stage AFTA models loaded.")
 
@@ -117,7 +125,7 @@ print(f"Ensemble Accuracy: {ensemble_acc:.4f}")
 # -----------------------------------------
 # CREATE STATIC FOLDER IF NOT EXISTS
 # -----------------------------------------
-os.makedirs("backend/static", exist_ok=True)
+STATIC_DIR.mkdir(parents=True, exist_ok=True)
 
 # -----------------------------------------
 # SAVE ACCURACY BAR GRAPH
@@ -130,7 +138,7 @@ plt.bar(
 plt.title("AFTA Model Accuracy Comparison")
 plt.ylabel("Accuracy")
 plt.tight_layout()
-plt.savefig("backend/static/accuracy_comparison.png")
+plt.savefig(STATIC_DIR / "accuracy_comparison.png")
 plt.close()
 
 # -----------------------------------------
@@ -144,7 +152,7 @@ plt.title("Ensemble Confusion Matrix")
 plt.xlabel("Predicted")
 plt.ylabel("Actual")
 plt.tight_layout()
-plt.savefig("backend/static/confusion_matrix.png")
+plt.savefig(STATIC_DIR / "confusion_matrix.png")
 plt.close()
 
 print("\nGraphs saved inside backend/static/")

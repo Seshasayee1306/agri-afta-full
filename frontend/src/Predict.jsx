@@ -156,7 +156,38 @@ export default function Predict() {
           <h3>📊 Results</h3>
           <p><strong>Growth Stage:</strong> {result.growth_stage}</p>
           <p><strong>Stage Model:</strong> {result.stage_model_prediction}</p>
-          <p><strong>AFTA Model:</strong> {result.afta_prediction}</p>
+          <p><strong>AFTA Model (Combined):</strong> {result.afta_prediction}</p>
+          <div
+            style={{
+              marginTop: "14px",
+              padding: "14px",
+              borderRadius: "10px",
+              border: "1px solid #cbd5e1",
+              background: "#ffffff"
+            }}
+          >
+            <h4 style={{ marginTop: 0, marginBottom: "10px" }}>🌐 Global vs 🧩 Local AFTA</h4>
+            <p style={{ margin: "6px 0" }}>
+              <strong>Global AFTA Prediction:</strong> {result.afta_global_prediction}
+              {typeof result.afta_global_probability === "number" ? ` (p=${result.afta_global_probability})` : ""}
+            </p>
+            <p style={{ margin: "6px 0" }}>
+              <strong>Local Stage AFTA Prediction:</strong> {result.afta_local_prediction}
+              {typeof result.afta_local_probability === "number" ? ` (p=${result.afta_local_probability})` : ""}
+            </p>
+            <p style={{ margin: "6px 0" }}>
+              <strong>Combined AFTA Prediction:</strong> {result.afta_combined_prediction}
+              {typeof result.afta_combined_probability === "number" ? ` (p=${result.afta_combined_probability})` : ""}
+            </p>
+            <p style={{ margin: "6px 0" }}>
+              <strong>AFTA Decision Mode:</strong> {result.afta_decision_mode || "n/a"}
+            </p>
+            <p style={{ margin: "6px 0" }}>
+              <strong>Local Model:</strong>{" "}
+              {result.afta_local_model_name || "not selected"}{" "}
+              ({result.afta_local_model_available ? "loaded" : "fallback to global"})
+            </p>
+          </div>
           <p><strong>Context Score:</strong> {result.context_score}</p>
           <p><strong>Stress Index:</strong> {result.stress_index}</p>
 
