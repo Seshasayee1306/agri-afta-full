@@ -1,0 +1,28 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: afta-retrain
+spec:
+  schedule: "0 3 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 5
+
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      template:
+        spec:
+          serviceAccountName: retrain-sa
+          restartPolicy: Never
+
+          containers:
+            - name: retrain
+              image: sesha1306/agri-backend:latest
+              command:
+                - python
+                - /app/retrain/retrain.py
+
+              env:
+                - name: PYTHONUNBUFFERED
+                  value: "1"

@@ -1,0 +1,23 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: context-model-train
+spec:
+  backoffLimit: 1
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: context-trainer
+          image: sesha1306/agri-backend:latest
+          command: ["python3", "-m", "backend.context.train_context_model"]
+          env:
+            - name: MLFLOW_TRACKING_URI
+              value: "http://mlflow-svc:5000"
+          volumeMounts:
+            - name: model-store
+              mountPath: /models   # ✅ REQUIRED
+      volumes:
+        - name: model-store
+          persistentVolumeClaim:
+            claimName: model-store-pvc   # ✅ SAME PVC AS BACKEND

@@ -1,0 +1,632 @@
+Loading Original AFTA+XGBoost model from /Users/sankar/Downloads/agri-afta-full-main/backend/final_model.pkl...
+✅ Loaded feature imputation means.
+🔹 Model Architecture: Pure_AFTA_Original
+✅ AFTA Model loaded successfully!
+ * Serving Flask app 'app'
+ * Debug mode: off
+[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:8000
+ * Running on http://172.20.10.9:8000
+[33mPress CTRL+C to quit[0m
+127.0.0.1 - - [11/Feb/2026 20:25:09] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 20:25:11] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 20:38:49] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 20:38:49] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 20:38:49] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 20:38:50] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 20:39:39] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 20:39:40] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 20:39:40] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 20:39:40] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 20:39:40] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 20:39:40] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 20:39:40] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 20:39:40] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 20:39:40] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 20:39:41] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 20:39:41] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 20:39:41] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 20:39:41] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 20:39:42] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 20:39:54] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 20:39:55] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 20:39:55] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 20:39:55] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 20:39:55] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 20:39:55] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 20:39:55] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 20:39:55] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 20:39:55] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 20:39:55] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 20:39:55] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 20:39:56] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 20:39:56] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 20:39:56] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 20:40:42] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 20:40:42] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 20:40:42] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 20:40:42] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 20:40:46] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 20:40:49] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 20:40:50] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 20:40:52] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 20:40:52] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 20:40:53] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 20:41:10] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 20:41:10] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 20:41:10] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 20:41:10] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:03:09] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:03:09] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:03:09] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:03:09] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:03:09] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:03:09] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:03:09] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:03:09] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:03:09] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:03:09] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:03:09] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:03:09] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:03:09] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:03:10] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:03:10] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:03:10] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:03:10] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:03:10] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:03:10] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:03:10] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:03:10] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:03:10] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:03:10] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:03:10] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:03:10] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:03:10] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:03:13] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:03:13] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:03:13] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:03:13] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:03:14] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:03:14] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:03:14] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:03:14] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:03:14] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:03:14] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:03:14] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:03:14] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:03:14] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:03:14] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:03:14] "POST /afta HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:03:14] "POST /afta HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:03:14] "POST /afta HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:03:14] "POST /afta HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:03:14] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:03:14] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:03:14] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:03:14] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:46:05] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:46:05] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:46:05] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:46:06] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:46:25] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:46:25] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:46:25] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:46:25] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:46:45] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:46:45] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:46:45] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:46:45] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:46:55] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:46:55] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:46:55] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:46:55] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:47:08] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:47:08] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:47:08] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:47:08] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:47:20] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:47:20] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:47:20] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:47:21] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:47:29] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:47:29] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:47:29] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:47:29] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:47:40] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:47:40] "OPTIONS /explain HTTP/1.1" 200 -
+[2026-02-11 21:47:40,391] ERROR in app: Exception on /predict [POST]
+Traceback (most recent call last):
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/flask/app.py", line 1473, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/flask/app.py", line 882, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/flask_cors/extension.py", line 176, in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+                                                ^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/flask/app.py", line 880, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/flask/app.py", line 865, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/sankar/Downloads/agri-afta-full-main/backend/app.py", line 55, in predict
+    is_valid, reason = validate_sensor_data(data)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/sankar/Downloads/agri-afta-full-main/backend/utils/validator.py", line 44, in validate_sensor_data
+    if val < min_val or val > max_val:
+       ^^^^^^^^^^^^^
+TypeError: '<' not supported between instances of 'NoneType' and 'int'
+127.0.0.1 - - [11/Feb/2026 21:47:40] "[35m[1mPOST /predict HTTP/1.1[0m" 500 -
+[2026-02-11 21:47:40,410] ERROR in app: Exception on /explain [POST]
+Traceback (most recent call last):
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/flask/app.py", line 1473, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/flask/app.py", line 882, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/flask_cors/extension.py", line 176, in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+                                                ^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/flask/app.py", line 880, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/flask/app.py", line 865, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/sankar/Downloads/agri-afta-full-main/backend/app.py", line 156, in explain
+    is_valid, reason = validate_sensor_data(features)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/sankar/Downloads/agri-afta-full-main/backend/utils/validator.py", line 44, in validate_sensor_data
+    if val < min_val or val > max_val:
+       ^^^^^^^^^^^^^
+TypeError: '<' not supported between instances of 'NoneType' and 'int'
+127.0.0.1 - - [11/Feb/2026 21:47:40] "[35m[1mPOST /explain HTTP/1.1[0m" 500 -
+127.0.0.1 - - [11/Feb/2026 21:47:48] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:47:48] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:47:48] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:47:48] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:48:03] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:48:03] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:48:03] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:48:03] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:48:13] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:48:13] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:48:13] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:48:13] "POST /explain HTTP/1.1" 200 -
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ Invalid Data Detected: Time of Day (25) is out of physical range [0, 24]
+⚠️ Invalid Data Detected: Temperature (82) is out of physical range [-20, 60]
+⚠️ Invalid Data Detected: Soil Humidity (150) is out of physical range [0, 100]
+⚠️ Invalid Data Detected: Soil Humidity (150) is out of physical range [0, 100]127.0.0.1 - - [11/Feb/2026 21:48:14] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:48:14] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:58:21] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 21:58:21] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:00:40] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:00:40] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:00:40] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:00:40] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:05:43] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:05:43] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:05:43] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:05:44] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:05:58] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:05:58] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:05:58] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:05:58] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:07:58] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:07:58] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:07:58] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:07:58] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:07:58] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:07:58] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:07:58] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:07:59] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:07:59] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:07:59] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:08:06] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:08:06] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:08:06] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:08:06] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:08:06] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:08:06] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:08:06] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:08:06] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:08:07] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:08:07] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:09:13] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:09:13] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:09:13] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:09:14] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:09:35] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:09:35] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:09:41] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:09:41] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:09:46] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:09:46] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:09:46] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:09:57] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:09:57] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:09:57] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:09:57] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:10:13] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:10:13] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:10:13] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:10:13] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:10:37] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:10:37] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:10:37] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:10:37] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:10:47] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:10:47] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:10:47] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:10:47] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:10:56] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:10:56] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:10:56] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:10:56] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:11:08] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:11:08] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:11:08] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:11:09] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:11:28] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:11:28] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:11:28] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:11:28] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:11:36] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:11:36] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:11:36] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:11:36] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:11:57] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:11:58] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:11:58] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:11:58] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:13:08] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:13:08] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:13:19] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:13:19] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:14:21] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:14:21] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:15:07] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:15:07] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:15:31] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:15:31] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:16:37] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:16:37] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:16:37] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:16:44] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:21:40] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:21:40] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:22:46] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:22:46] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:24:35] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:24:35] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:24:46] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:24:46] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:24:57] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:24:57] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:25:09] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:25:09] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:25:21] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:25:21] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:25:33] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:25:33] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:25:45] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:25:45] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:25:58] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:25:58] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:26:13] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:26:13] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:26:27] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:26:27] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:32:02] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:32:02] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:32:15] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:32:16] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:32:29] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:32:29] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:32:45] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:32:45] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:33:03] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:33:03] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:33:48] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:33:48] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:34:21] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:34:21] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:34:40] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:34:40] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:35:06] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:35:06] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:35:49] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:35:49] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:36:24] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:36:24] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:38:22] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:38:32] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:44:17] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:44:18] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:46:16] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:46:23] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:46:39] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:46:39] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:47:01] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:47:02] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:47:22] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:47:22] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:47:47] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:47:48] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:48:15] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:48:16] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:48:47] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:48:47] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:49:19] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:49:20] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:49:51] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:49:52] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:50:55] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:50:55] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:50:55] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:50:57] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:51:27] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:51:27] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:51:27] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:51:28] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:52:02] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:52:02] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:52:02] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:52:02] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:52:37] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:52:37] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:52:37] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:52:38] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:53:08] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:53:08] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:53:08] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:53:10] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:54:11] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:54:11] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:54:11] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:54:14] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:55:14] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:55:14] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:55:14] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:55:21] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:56:03] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:56:03] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:56:03] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:56:03] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:56:41] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:56:41] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:56:41] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:56:41] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:57:15] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:57:15] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:57:15] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 22:57:22] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:01:21] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:01:35] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:01:49] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:02:04] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:03:46] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:03:46] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:03:46] "POST /predict HTTP/1.1" 200 -
+
+⚠️ Invalid Data Detected: Soil Humidity (150) is out of physical range [0, 100]
+⚠️ Invalid Data Detected: Soil Humidity (150) is out of physical range [0, 100]
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ Invalid Data Detected: Time of Day (40) is out of physical range [0, 24]
+⚠️ Invalid Data Detected: Time of Day (46) is out of physical range [0, 24]
+⚠️ Invalid Data Detected: Temperature (62) is out of physical range [-20, 60]
+⚠️ Invalid Data Detected: Temperature (82) is out of physical range [-20, 60]
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ Invalid Data Detected: Soil Humidity (150) is out of physical range [0, 100]
+⚠️ Invalid Data Detected: Time of Day (32) is out of physical range [0, 24]
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ Invalid Data Detected: Potassium (618) is out of physical range [0, 500]
+⚠️ Invalid Data Detected: Potassium (4888) is out of physical range [0, 500]
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ Invalid Data Detected: Time of Day (40) is out of physical range [0, 24]
+⚠️ Invalid Data Detected: Time of Day (46) is out of physical range [0, 24]
+⚠️ Invalid Data Detected: Temperature (62) is out of physical range [-20, 60]
+⚠️ Invalid Data Detected: Temperature (82) is out of physical range [-20, 60]
+⚠️ Invalid Data Detected: Temperature (88) is out of physical range [-20, 60]
+⚠️ Invalid Data Detected: Soil Humidity (150) is out of physical range [0, 100]
+⚠️ Invalid Data Detected: Time of Day (32) is out of physical range [0, 24]
+⚠️ Invalid Data Detected: Time of Day (56) is out of physical range [0, 24]
+⚠️ Invalid Data Detected: Time of Day (56) is out of physical range [0, 24]
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)
+⚠️ Groq error — using fallback: Error code: 401 - {'error': {'message': 'Invalid API Key', 'type': 'invalid_request_error', 'code': 'invalid_api_key'}}
+⚠️ SHAP TreeExplainer disabled (production-safe fallback)127.0.0.1 - - [11/Feb/2026 23:03:47] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:04:14] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:04:14] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:04:14] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:04:15] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:05:26] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:05:27] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:05:29] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:07:37] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:07:37] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:07:37] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:07:37] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:08:45] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:08:45] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:08:45] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:08:46] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:08:55] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:08:55] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:08:55] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:08:55] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:09:57] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:09:57] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:09:57] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:09:57] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:10:03] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:10:03] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:10:03] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:10:04] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:10:16] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:10:16] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:10:16] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:10:17] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:11:38] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:11:38] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:11:38] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:11:38] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:11:45] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:11:45] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:11:45] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:11:45] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:11:52] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:11:52] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:11:52] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:11:52] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:11:59] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:11:59] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:11:59] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:11:59] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:12:10] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:12:10] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:12:10] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:12:10] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:12:16] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:12:16] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:12:16] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:12:17] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:12:24] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:12:24] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:12:24] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:12:24] "POST /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:12:55] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:12:55] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:13:02] "OPTIONS /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:13:02] "OPTIONS /explain HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:13:02] "POST /predict HTTP/1.1" 200 -
+127.0.0.1 - - [11/Feb/2026 23:13:03] "POST /explain HTTP/1.1" 200 -
