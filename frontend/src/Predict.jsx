@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -20,11 +20,15 @@ export default function Predict() {
   const [explainResult, setExplainResult] = useState(null);
   const [explainLoading, setExplainLoading] = useState(false);
   const [feedbackStatus, setFeedbackStatus] = useState(null);
+  const [sensorSyncStatus, setSensorSyncStatus] = useState("");
+  const [predictLoading, setPredictLoading] = useState(false);
+
+  const baseUrl = "http://127.0.0.1:8000";
 
   const fetchExplain = async (payload) => {
     setExplainLoading(true);
     try {
-      const res = await fetch("http://127.0.0.1:8000/explain", {
+      const res = await fetch(baseUrl + "/explain", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -54,17 +58,23 @@ export default function Predict() {
       ph: Number(ph),
       region,
       crop_type: cropType,
-      soil_type: soilType
+      soil_type: soilType,
     };
 
+    setPredictLoading(true);
     try {
-      const res = await fetch("http://127.0.0.1:8000/predict_full_intelligent", {
+      const res = await fetch(baseUrl + "/predict_full_intelligent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
+      if (!res.ok) {
+        setResult({ error: data?.error || "Prediction failed" });
+        return;
+      }
+
       setResult(data);
       setExplainResult(null);
       setFeedbackStatus(null);
@@ -76,13 +86,45 @@ export default function Predict() {
         // ignore storage errors
       }
 
-      // Automatically run explanation using the exact same payload as prediction.
       fetchExplain(payload);
     } catch (err) {
       console.error(err);
       alert("Prediction failed");
+    } finally {
+      setPredictLoading(false);
     }
   };
+
+  const fetchLatestSensorReadings = async () => {
+    setSensorSyncStatus("Fetching latest ESP32 readings...");
+    try {
+      const res = await fetch(baseUrl + "/sensor_readings/latest");
+      const data = await res.json();
+      if (!res.ok) {
+        setSensorSyncStatus(data?.error || "Failed to fetch sensor readings");
+        return;
+      }
+
+      setSoilMoisture(String(data.soil_moisture ?? ""));
+      setTemperature(String(data.temperature ?? ""));
+      setHumidity(String(data.humidity ?? ""));
+      setPh(String(data.ph ?? ""));
+      setSensorSyncStatus(
+        "Updated from " +
+          (data.device_id || "esp32") +
+          " at " +
+          (data.received_at || "unknown time")
+      );
+    } catch (err) {
+      console.error(err);
+      setSensorSyncStatus("Failed to fetch sensor readings");
+    }
+  };
+
+  useEffect(() => {
+    fetchLatestSensorReadings();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const submitFeedback = async (label) => {
     if (!lastPayload) {
@@ -91,14 +133,14 @@ export default function Predict() {
     }
     setFeedbackStatus("submitting");
     try {
-      const res = await fetch("http://127.0.0.1:8000/label", {
+      const res = await fetch(baseUrl + "/label", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...lastPayload, label }),
       });
       const data = await res.json();
       if (!res.ok) {
-        setFeedbackStatus(`error: ${data?.error || "failed"}`);
+        setFeedbackStatus("error: " + (data?.error || "failed"));
         return;
       }
       setFeedbackStatus("saved");
@@ -116,182 +158,222 @@ export default function Predict() {
     fetchExplain(lastPayload);
   };
 
+  const predictionToneClass =
+    result?.final_prediction === 1 ? "decision-card danger" : "decision-card success";
+
   return (
-    <div style={{ maxWidth: "900px", margin: "40px auto", fontFamily: "Inter" }}>
-      <h2>🌾 Full Intelligent Irrigation System</h2>
+    <div className="dashboard-enter">
+      <section className="hero-panel">
+        <p className="hero-kicker">Precision Operations Suite</p>
+        <h2 className="hero-title">Field Prediction Workflow</h2>
+        <p className="hero-copy">
+          Sync live sensor telemetry, attach crop context, and run the full intelligent irrigation decision engine.
+        </p>
+      </section>
 
-      <h3>📅 Crop Stage</h3>
-      <input type="date" value={sowingDate} onChange={e => setSowingDate(e.target.value)} />
-      <input type="date" value={currentDate} onChange={e => setCurrentDate(e.target.value)} style={{ marginLeft: "10px" }} />
+      <section className="panel form-panel">
+        <div className="panel-heading">
+          <h3>Crop Timeline</h3>
+          <p>Set growth window dates to align stage-aware predictions.</p>
+        </div>
+        <div className="input-grid input-grid-two">
+          <label className="field">
+            <span>Sowing Date</span>
+            <input type="date" value={sowingDate} onChange={(e) => setSowingDate(e.target.value)} />
+          </label>
+          <label className="field">
+            <span>Current Date</span>
+            <input type="date" value={currentDate} onChange={(e) => setCurrentDate(e.target.value)} />
+          </label>
+        </div>
+      </section>
 
-      <h3>🌡 Sensor Values</h3>
-      <input type="number" placeholder="Soil Moisture (%)" value={soilMoisture} onChange={e => setSoilMoisture(e.target.value)} />
-      <input type="number" placeholder="Temperature (°C)" value={temperature} onChange={e => setTemperature(e.target.value)} style={{ marginLeft: "10px" }} />
-      <input type="number" placeholder="Humidity (%)" value={humidity} onChange={e => setHumidity(e.target.value)} style={{ marginLeft: "10px" }} />
-      <input type="number" step="0.01" placeholder="pH" value={ph} onChange={e => setPh(e.target.value)} style={{ marginLeft: "10px" }} />
+      <section className="panel form-panel">
+        <div className="panel-heading panel-heading-inline">
+          <div>
+            <h3>Sensor Inputs</h3>
+            <p>Use the latest ESP32 readings or manually override before prediction.</p>
+          </div>
+          <button onClick={fetchLatestSensorReadings} className="btn btn-secondary">
+            Pull Latest From ESP32
+          </button>
+        </div>
+        {sensorSyncStatus && <p className="status-text">{sensorSyncStatus}</p>}
+        <div className="input-grid input-grid-four">
+          <label className="field">
+            <span>Soil Moisture (%)</span>
+            <input type="number" value={soilMoisture} onChange={(e) => setSoilMoisture(e.target.value)} />
+          </label>
+          <label className="field">
+            <span>Temperature (°C)</span>
+            <input type="number" value={temperature} onChange={(e) => setTemperature(e.target.value)} />
+          </label>
+          <label className="field">
+            <span>Humidity (%)</span>
+            <input type="number" value={humidity} onChange={(e) => setHumidity(e.target.value)} />
+          </label>
+          <label className="field">
+            <span>pH</span>
+            <input type="number" step="0.01" value={ph} onChange={(e) => setPh(e.target.value)} />
+          </label>
+        </div>
+      </section>
 
-      <h3>🌍 Context</h3>
-      <input type="text" placeholder="Region" value={region} onChange={e => setRegion(e.target.value)} />
-      <input type="text" placeholder="Crop Type" value={cropType} onChange={e => setCropType(e.target.value)} style={{ marginLeft: "10px" }} />
-      <input type="text" placeholder="Soil Type" value={soilType} onChange={e => setSoilType(e.target.value)} style={{ marginLeft: "10px" }} />
+      <section className="panel form-panel">
+        <div className="panel-heading">
+          <h3>Context Inputs</h3>
+          <p>Add farm context used by lookup, scoring, and recommendation stages.</p>
+        </div>
+        <div className="input-grid input-grid-three">
+          <label className="field">
+            <span>Region</span>
+            <input type="text" value={region} onChange={(e) => setRegion(e.target.value)} />
+          </label>
+          <label className="field">
+            <span>Crop Type</span>
+            <input type="text" value={cropType} onChange={(e) => setCropType(e.target.value)} />
+          </label>
+          <label className="field">
+            <span>Soil Type</span>
+            <input type="text" value={soilType} onChange={(e) => setSoilType(e.target.value)} />
+          </label>
+        </div>
+      </section>
 
-      <br /><br />
-
-      <button
-        onClick={handlePredict}
-        style={{
-          padding: "12px 25px",
-          background: "#2563eb",
-          color: "white",
-          border: "none",
-          borderRadius: "8px",
-          fontWeight: "600"
-        }}
-      >
-        🚀 Run Full Intelligent Prediction
-      </button>
+      <section className="action-row">
+        <button onClick={handlePredict} className="btn btn-primary btn-large" disabled={predictLoading}>
+          {predictLoading ? "Running Prediction..." : "Run Full Intelligent Prediction"}
+        </button>
+      </section>
 
       {result && (
-        <div style={{ marginTop: "30px", padding: "20px", background: "#f1f5f9", borderRadius: "10px" }}>
-          <h3>📊 Results</h3>
-          <p><strong>Growth Stage:</strong> {result.growth_stage}</p>
-          <p><strong>Stage Model:</strong> {result.stage_model_prediction}</p>
-          <p><strong>AFTA Model (Combined):</strong> {result.afta_prediction}</p>
-          <div
-            style={{
-              marginTop: "14px",
-              padding: "14px",
-              borderRadius: "10px",
-              border: "1px solid #cbd5e1",
-              background: "#ffffff"
-            }}
-          >
-            <h4 style={{ marginTop: 0, marginBottom: "10px" }}>🌐 Global vs 🧩 Local AFTA</h4>
-            <p style={{ margin: "6px 0" }}>
-              <strong>Global AFTA Prediction:</strong> {result.afta_global_prediction}
-              {typeof result.afta_global_probability === "number" ? ` (p=${result.afta_global_probability})` : ""}
-            </p>
-            <p style={{ margin: "6px 0" }}>
-              <strong>Local Stage AFTA Prediction:</strong> {result.afta_local_prediction}
-              {typeof result.afta_local_probability === "number" ? ` (p=${result.afta_local_probability})` : ""}
-            </p>
-            <p style={{ margin: "6px 0" }}>
-              <strong>Combined AFTA Prediction:</strong> {result.afta_combined_prediction}
-              {typeof result.afta_combined_probability === "number" ? ` (p=${result.afta_combined_probability})` : ""}
-            </p>
-            <p style={{ margin: "6px 0" }}>
-              <strong>AFTA Decision Mode:</strong> {result.afta_decision_mode || "n/a"}
-            </p>
-            <p style={{ margin: "6px 0" }}>
-              <strong>Local Model:</strong>{" "}
-              {result.afta_local_model_name || "not selected"}{" "}
-              ({result.afta_local_model_available ? "loaded" : "fallback to global"})
-            </p>
-          </div>
-          <p><strong>Context Score:</strong> {result.context_score}</p>
-          <p><strong>Stress Index:</strong> {result.stress_index}</p>
-
-          <h2>
-            {result.final_prediction === 1
-              ? "💧 Irrigation Required"
-              : "✅ No Irrigation Needed"}
-          </h2>
-
-          {result.final_prediction === 1 && (
-            <h3>
-              💦 Recommended Water: {result.recommended_water_liters} Liters
-            </h3>
-          )}
-
-          <div style={{ marginTop: "20px" }}>
-            <h3>✅ Feedback (for retraining)</h3>
-            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-              <button
-                onClick={() => submitFeedback(1)}
-                style={{
-                  padding: "10px 14px",
-                  background: "#16a34a",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "8px",
-                  fontWeight: "600",
-                  cursor: "pointer",
-                }}
-              >
-                It needed irrigation (Label=1)
-              </button>
-              <button
-                onClick={() => submitFeedback(0)}
-                style={{
-                  padding: "10px 14px",
-                  background: "#dc2626",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "8px",
-                  fontWeight: "600",
-                  cursor: "pointer",
-                }}
-              >
-                No irrigation needed (Label=0)
-              </button>
-            </div>
-            {feedbackStatus === "submitting" && (
-              <p style={{ marginTop: "10px" }}>Saving feedback...</p>
-            )}
-            {feedbackStatus === "saved" && (
-              <p style={{ marginTop: "10px" }}>Feedback saved (and sent to S3 if configured).</p>
-            )}
-            {feedbackStatus && feedbackStatus.startsWith("error") && (
-              <p style={{ marginTop: "10px", color: "#b91c1c" }}>{feedbackStatus}</p>
-            )}
+        <section className="panel result-panel">
+          <div className="panel-heading">
+            <h3>Prediction Output</h3>
+            <p>Decision details from stage model, AFTA blend, and contextual reasoning.</p>
           </div>
 
-          <div style={{ marginTop: "20px" }}>
-            <button
-              onClick={handleExplain}
-              disabled={explainLoading}
-              style={{
-                padding: "10px 18px",
-                background: "#111827",
-                color: "white",
-                border: "none",
-                borderRadius: "8px",
-                fontWeight: "600",
-                cursor: explainLoading ? "not-allowed" : "pointer"
-              }}
-            >
-              {explainLoading ? "⏳ Explaining..." : "🧠 Explain with LLM"}
-            </button>
-          </div>
-
-          {explainResult && (
-            <div style={{ marginTop: "20px" }}>
-              <h3>🧠 Explanation</h3>
-              {explainResult.error && (
-                <pre style={{ whiteSpace: "pre-wrap" }}>{JSON.stringify(explainResult, null, 2)}</pre>
-              )}
-              {explainResult.llm_explanation && (
-                <div
-                  style={{
-                    marginTop: "10px",
-                    padding: "16px",
-                    borderRadius: "12px",
-                    background: "#fff",
-                    border: "1px solid #e2e8f0",
-                    boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
-                    lineHeight: "1.7",
-                    fontSize: "16px",
-                    color: "#1e293b",
-                  }}
-                >
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {explainResult.llm_explanation}
-                  </ReactMarkdown>
+          {result.error ? (
+            <div className="status-pill danger">{result.error}</div>
+          ) : (
+            <>
+              <div className="metrics-grid">
+                <div className="metric-card">
+                  <p className="metric-label">Growth Stage</p>
+                  <p className="metric-value">{result.growth_stage}</p>
                 </div>
-              )}
-            </div>
+                <div className="metric-card">
+                  <p className="metric-label">Stage Model</p>
+                  <p className="metric-value">{result.stage_model_prediction}</p>
+                </div>
+                <div className="metric-card">
+                  <p className="metric-label">AFTA Combined</p>
+                  <p className="metric-value">{result.afta_prediction}</p>
+                </div>
+                <div className="metric-card">
+                  <p className="metric-label">Context Score</p>
+                  <p className="metric-value">{result.context_score}</p>
+                </div>
+                <div className="metric-card">
+                  <p className="metric-label">Stress Index</p>
+                  <p className="metric-value">{result.stress_index}</p>
+                </div>
+              </div>
+
+              <div className={predictionToneClass}>
+                <p className="decision-title">
+                  {result.final_prediction === 1
+                    ? "Irrigation Required"
+                    : "No Irrigation Needed"}
+                </p>
+                <p className="decision-subtitle">
+                  {result.final_prediction === 1
+                    ? "Recommendation generated based on current risk profile."
+                    : "Current field conditions are stable for now."}
+                </p>
+                {result.final_prediction === 1 && (
+                  <p className="decision-water">
+                    Recommended Water: {result.recommended_water_liters} liters
+                  </p>
+                )}
+              </div>
+
+              <div className="afta-panel">
+                <h4>Global vs Local AFTA</h4>
+                <p>
+                  <strong>Global Prediction:</strong> {result.afta_global_prediction}
+                  {typeof result.afta_global_probability === "number"
+                    ? " (p=" + result.afta_global_probability + ")"
+                    : ""}
+                </p>
+                <p>
+                  <strong>Local Prediction:</strong> {result.afta_local_prediction}
+                  {typeof result.afta_local_probability === "number"
+                    ? " (p=" + result.afta_local_probability + ")"
+                    : ""}
+                </p>
+                <p>
+                  <strong>Combined Prediction:</strong> {result.afta_combined_prediction}
+                  {typeof result.afta_combined_probability === "number"
+                    ? " (p=" + result.afta_combined_probability + ")"
+                    : ""}
+                </p>
+                <p><strong>Decision Mode:</strong> {result.afta_decision_mode || "n/a"}</p>
+                <p>
+                  <strong>Local Model:</strong> {result.afta_local_model_name || "not selected"} (
+                  {result.afta_local_model_available ? "loaded" : "fallback to global"})
+                </p>
+              </div>
+
+              <div className="feedback-panel">
+                <h4>Feedback for Retraining</h4>
+                <div className="feedback-actions">
+                  <button onClick={() => submitFeedback(1)} className="btn btn-success">
+                    Label as irrigation needed
+                  </button>
+                  <button onClick={() => submitFeedback(0)} className="btn btn-danger">
+                    Label as no irrigation needed
+                  </button>
+                </div>
+                {feedbackStatus === "submitting" && <p className="status-text">Saving feedback...</p>}
+                {feedbackStatus === "saved" && (
+                  <p className="status-pill success">Feedback saved successfully.</p>
+                )}
+                {feedbackStatus && feedbackStatus.startsWith("error") && (
+                  <p className="status-pill danger">{feedbackStatus}</p>
+                )}
+              </div>
+
+              <div className="llm-panel">
+                <div className="panel-heading panel-heading-inline">
+                  <div>
+                    <h4>LLM Explanation</h4>
+                    <p>Natural language rationale for the prediction decision.</p>
+                  </div>
+                  <button
+                    onClick={handleExplain}
+                    disabled={explainLoading}
+                    className="btn btn-tertiary"
+                  >
+                    {explainLoading ? "Explaining..." : "Generate Explanation"}
+                  </button>
+                </div>
+
+                {explainResult && explainResult.error && (
+                  <pre className="code-box">{JSON.stringify(explainResult, null, 2)}</pre>
+                )}
+
+                {explainResult && explainResult.llm_explanation && (
+                  <div className="markdown-card">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {explainResult.llm_explanation}
+                    </ReactMarkdown>
+                  </div>
+                )}
+              </div>
+            </>
           )}
-        </div>
+        </section>
       )}
     </div>
   );

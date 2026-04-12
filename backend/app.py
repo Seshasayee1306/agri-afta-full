@@ -16,6 +16,7 @@ from backend.context.context_model import context_model
 from backend.context.context_lookup import get_context_lookup
 from backend.imputation_defaults import get_median_defaults
 from backend.s3_logger import make_key, put_json
+from datetime import datetime, timezone
 
 # AFTA model feature order used by fed_afta/run_fed.py training.
 AFTA_FEATURES_ORDER = [
@@ -540,6 +541,27 @@ def calculate_stress_index(stage, soil_moisture, temperature, rainfall, ndvi=0.5
 app = Flask(__name__)
 CORS(app)
 
+latest_sensor_readings = None
+
+ESP32_ADC_MAX = 4095.0
+
+
+def _clamp(value, lo, hi):
+    return max(lo, min(hi, value))
+
+
+def _adc_to_ph(raw_value):
+    # ESP32 ADC range (0..4095) mapped to pH scale (0..14)
+    ph_value = (float(raw_value) * 14.0) / ESP32_ADC_MAX
+    return _clamp(ph_value, 0.0, 14.0)
+
+
+def _adc_to_soil_moisture_percent(raw_value):
+    # Typical capacitive probes: higher ADC means drier soil.
+    # Map 0..4095 to 100..0 moisture%.
+    pct = (1.0 - (float(raw_value) / ESP32_ADC_MAX)) * 100.0
+    return _clamp(pct, 0.0, 100.0)
+
 # -----------------------------------------------------
 # LOAD MODEL
 # -----------------------------------------------------
@@ -954,6 +976,80 @@ def metrics():
 @app.route("/health", methods=["GET"])
 def health():
     return jsonify({"status": "backend running"})
+
+
+@app.route("/sensor_readings", methods=["POST"])
+def ingest_sensor_readings():
+    global latest_sensor_readings
+
+    def _to_float(name, value):
+        if value is None:
+            return None
+        try:
+            parsed = float(value)
+        except Exception:
+            raise ValueError(f"Invalid numeric value for '{name}'")
+        if not np.isfinite(parsed):
+            raise ValueError(f"Non-finite numeric value for '{name}'")
+        return parsed
+
+    json_data = request.get_json(silent=True)
+    if not json_data:
+        return jsonify({"error": "Invalid JSON payload"}), 400
+
+    try:
+        temperature = _to_float("temperature", json_data.get("temperature"))
+        humidity = _to_float("humidity", json_data.get("humidity"))
+        ph_input = _to_float("ph", json_data.get("ph"))
+        soil_input = _to_float("soil_moisture", json_data.get("soil_moisture"))
+        ph_raw = _to_float("ph_raw", json_data.get("ph_raw"))
+        soil_raw = _to_float("soil_raw", json_data.get("soil_raw"))
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
+    if temperature is None or humidity is None:
+        return jsonify({"error": "Missing required fields: temperature, humidity"}), 400
+
+    if ph_input is None and ph_raw is None:
+        return jsonify({"error": "Missing required field: ph (or ph_raw)"}), 400
+    if soil_input is None and soil_raw is None:
+        return jsonify({"error": "Missing required field: soil_moisture (or soil_raw)"}), 400
+
+    # Prefer explicit non-raw fields; auto-convert if raw-like values are sent there.
+    if ph_input is not None:
+        ph_value = _adc_to_ph(ph_input) if ph_input > 14.0 else _clamp(ph_input, 0.0, 14.0)
+    else:
+        ph_value = _adc_to_ph(ph_raw)
+
+    if soil_input is not None:
+        soil_moisture_value = (
+            _adc_to_soil_moisture_percent(soil_input)
+            if soil_input > 100.0
+            else _clamp(soil_input, 0.0, 100.0)
+        )
+    else:
+        soil_moisture_value = _adc_to_soil_moisture_percent(soil_raw)
+
+    payload = {
+        "soil_moisture": round(float(soil_moisture_value), 2),
+        "temperature": round(float(temperature), 2),
+        "humidity": round(float(_clamp(humidity, 0.0, 100.0)), 2),
+        "ph": round(float(ph_value), 2),
+        "ph_raw": ph_raw if ph_raw is not None else json_data.get("ph_raw"),
+        "soil_raw": soil_raw if soil_raw is not None else json_data.get("soil_raw"),
+        "device_id": json_data.get("device_id", "esp32"),
+        "received_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+    latest_sensor_readings = payload
+    return jsonify({"status": "ok", "latest_sensor_readings": payload})
+
+
+@app.route("/sensor_readings/latest", methods=["GET"])
+def get_latest_sensor_readings():
+    if latest_sensor_readings is None:
+        return jsonify({"error": "No sensor readings received yet"}), 404
+    return jsonify(latest_sensor_readings)
 
 # =====================================================
 # NEW: STAGE-AWARE PREDICTION

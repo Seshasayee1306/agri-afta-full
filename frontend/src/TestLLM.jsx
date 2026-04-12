@@ -10,18 +10,22 @@ export default function TestLLM() {
       return "";
     }
   });
+
   const [result, setResult] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   const handleExplain = async () => {
     if (!payloadText) return;
+
     let payload;
     try {
       payload = JSON.parse(payloadText);
-    } catch (e) {
-      setResult({ error: "Payload must be valid JSON (copied from Predict page)" });
+    } catch {
+      setResult({ error: "Payload must be valid JSON (copied from Prediction Console)" });
       return;
     }
 
+    setLoading(true);
     try {
       const res = await fetch("http://127.0.0.1:8000/explain", {
         method: "POST",
@@ -33,109 +37,60 @@ export default function TestLLM() {
     } catch (err) {
       console.error(err);
       setResult({ error: "Failed to fetch explanation" });
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div
-      style={{
-        maxWidth: "900px",
-        margin: "40px auto",
-        padding: "20px",
-        fontFamily: "Inter, sans-serif",
-      }}
-    >
-      <h2 style={{ fontSize: "28px", fontWeight: "700" }}>
-        🌱 AI Crop Watering Explanation Tester
-      </h2>
+    <div className="dashboard-enter">
+      <section className="hero-panel hero-panel-compact">
+        <p className="hero-kicker">Model Explainability Workspace</p>
+        <h2 className="hero-title">LLM Explanation Inspector</h2>
+        <p className="hero-copy">
+          Paste payload JSON from the Prediction Console and inspect explanation output with raw API response.
+        </p>
+      </section>
 
-      <div style={{ marginTop: "20px" }}>
+      <section className="panel form-panel">
+        <div className="panel-heading">
+          <h3>Input Payload</h3>
+          <p>Auto-filled from local storage when a prediction has already been run.</p>
+        </div>
+
         <textarea
-          placeholder='Paste the JSON payload from the Predict page (auto-filled if available)'
+          className="payload-textarea"
+          placeholder="Paste JSON payload here"
           value={payloadText}
           onChange={(e) => setPayloadText(e.target.value)}
-          rows={8}
-          style={{
-            width: "100%",
-            padding: "12px",
-            fontSize: "14px",
-            borderRadius: "12px",
-            border: "1px solid #d1d5db",
-            fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
-          }}
+          rows={10}
         />
 
-        <button
-          onClick={handleExplain}
-          style={{
-            marginTop: "15px",
-            padding: "12px 20px",
-            borderRadius: "10px",
-            border: "none",
-            fontSize: "16px",
-            fontWeight: "600",
-            background: "#2563eb",
-            color: "white",
-            cursor: "pointer",
-          }}
-        >
-          🔍 Explain Prediction
-        </button>
-      </div>
+        <div className="action-row left">
+          <button onClick={handleExplain} className="btn btn-primary" disabled={loading}>
+            {loading ? "Running Explanation..." : "Run Explanation"}
+          </button>
+        </div>
+      </section>
 
       {result && (
-        <div style={{ marginTop: "30px" }}>
-          <h3 style={{ fontSize: "22px", fontWeight: 700 }}>
-            🧠 LLM Explanation Result
-          </h3>
-
-          {/* JSON preview box */}
-          <div
-            style={{
-              background: "#f1f5f9",
-              padding: "20px",
-              borderRadius: "12px",
-              marginTop: "15px",
-              overflowX: "auto",
-              fontSize: "14px",
-            }}
-          >
-            <pre>{JSON.stringify(result, null, 2)}</pre>
+        <section className="panel result-panel">
+          <div className="panel-heading">
+            <h3>Explanation Response</h3>
+            <p>Raw response plus formatted markdown explanation.</p>
           </div>
 
-          {/* Markdown explanation */}
-          {result.llm_explanation && (
-            <div
-              style={{
-                marginTop: "30px",
-                padding: "20px",
-                borderRadius: "12px",
-                background: "#fff",
-                border: "1px solid #e2e8f0",
-                boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
-                lineHeight: "1.7",
-                fontSize: "17px",
-                color: "#1e293b",
-              }}
-            >
-              <h3 style={{ marginBottom: "15px" }}>💬 LLM Says:</h3>
+          <pre className="code-box">{JSON.stringify(result, null, 2)}</pre>
 
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                components={{
-                  p: ({ children }) => (
-                    <p style={{ marginBottom: "12px" }}>{children}</p>
-                  ),
-                  li: ({ children }) => (
-                    <li style={{ marginBottom: "6px" }}>{children}</li>
-                  ),
-                }}
-              >
+          {result.llm_explanation && (
+            <div className="markdown-card">
+              <h4>LLM Narrative</h4>
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
                 {result.llm_explanation}
               </ReactMarkdown>
             </div>
           )}
-        </div>
+        </section>
       )}
     </div>
   );

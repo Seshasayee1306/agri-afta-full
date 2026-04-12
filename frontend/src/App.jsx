@@ -1,21 +1,53 @@
 import React from "react";
-import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
+import { BrowserRouter, NavLink, Route, Routes } from "react-router-dom";
 import Predict from "./Predict";
 import TestLLM from "./TestLLM";
 
 export default function App() {
   return (
     <BrowserRouter>
-      <div style={{ padding: "10px", fontFamily: "Arial, sans-serif" }}>
-        <nav style={{ marginBottom: "20px" }}>
-          <Link to="/" style={{ marginRight: "10px" }}>Predict</Link>
-          <Link to="/llm">Test LLM</Link>
-        </nav>
+      <div className="app-shell">
+        <div className="backdrop backdrop-one" />
+        <div className="backdrop backdrop-two" />
 
-        <Routes>
-          <Route path="/" element={<Predict />} />
-          <Route path="/llm" element={<TestLLM />} />
-        </Routes>
+        <header className="topbar">
+          <div className="brand">
+            <div className="brand-mark" aria-hidden="true">
+              AF
+            </div>
+            <div>
+              <p className="brand-eyebrow">Irrigation Intelligence</p>
+              <h1 className="brand-title">AgriFlow Control Center</h1>
+            </div>
+          </div>
+
+          <nav className="topnav" aria-label="Primary navigation">
+            <NavLink
+              to="/"
+              className={({ isActive }) =>
+                `topnav-link ${isActive ? "topnav-link-active" : ""}`
+              }
+              end
+            >
+              Prediction Console
+            </NavLink>
+            <NavLink
+              to="/llm"
+              className={({ isActive }) =>
+                `topnav-link ${isActive ? "topnav-link-active" : ""}`
+              }
+            >
+              LLM Inspector
+            </NavLink>
+          </nav>
+        </header>
+
+        <main className="page-wrap">
+          <Routes>
+            <Route path="/" element={<Predict />} />
+            <Route path="/llm" element={<TestLLM />} />
+          </Routes>
+        </main>
       </div>
     </BrowserRouter>
   );

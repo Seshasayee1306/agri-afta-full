@@ -27,6 +27,9 @@
 const char* WIFI_SSID = "YOUR_WIFI_SSID";
 const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
 const char* BACKEND_EDGE_ENDPOINT = "http://YOUR_BACKEND_IP:8000/predict_edge_afta";
+const unsigned long PREDICTION_INTERVAL_MS = 10000UL;
+
+unsigned long lastPredictionMs = 0;
 
 struct SensorInput {
   float soilMoisture;
@@ -220,11 +223,8 @@ static void sendEdgePredictionToBackend(const SensorInput& in, int localAftaPred
   Serial.println(response);
 }
 
-void setup() {
-  Serial.begin(115200);
-  delay(1000);
-  connectWifi();
-
+static SensorInput readSensorInput() {
+  // TODO: Replace with real sensor reads.
   SensorInput input;
   input.soilMoisture = 28.0f;
   input.temperature = 34.0f;
@@ -238,9 +238,15 @@ void setup() {
   input.region = "Coimbatore";
   input.cropType = "Paddy";
   input.soilType = "Loamy";
+  return input;
+}
+
+static void runPredictionCycle() {
+  SensorInput input = readSensorInput();
 
   int aftaPrediction = runTinyMlModel(input);
 
+  Serial.println();
   Serial.println("=== ESP32 Local AFTA Prediction ===");
   Serial.print("AFTA prediction: ");
   Serial.println(aftaPrediction == 1 ? "Needs water" : "No irrigation");
@@ -248,7 +254,18 @@ void setup() {
   sendEdgePredictionToBackend(input, aftaPrediction);
 }
 
+void setup() {
+  Serial.begin(115200);
+  delay(1000);
+  Serial.println("ESP32 STARTED");
+  connectWifi();
+  runPredictionCycle();
+  lastPredictionMs = millis();
+}
+
 void loop() {
-  // For production, read sensors and send every N minutes.
-  delay(10000);
+  if (millis() - lastPredictionMs >= PREDICTION_INTERVAL_MS) {
+    runPredictionCycle();
+    lastPredictionMs = millis();
+  }
 }

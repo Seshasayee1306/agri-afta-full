@@ -64,6 +64,7 @@ class ModelWrapper:
 
         # XGBoost head
         self.head: xgb.Booster = head
+        self.threshold = float(artifact.get("threshold", 0.5))
 
         # Detect XGB output type
         self.is_logitraw = False
@@ -119,9 +120,13 @@ class ModelWrapper:
         prob = self._predict_xgb(emb)
         return prob.tolist()
 
-    def predict(self, X):
-        prob = self.predict_proba(X)[0]
-        return int(prob >= 0.5)
+    def predict(self, X, threshold=None):
+        thr = self.threshold if threshold is None else float(threshold)
+        probs = np.asarray(self.predict_proba(X), dtype=np.float32).ravel()
+        preds = (probs >= thr).astype(int)
+        if preds.size == 1:
+            return int(preds[0])
+        return preds.tolist()
 
     def get_embeddings_and_pred(self, X):
         emb = self._embed(X)

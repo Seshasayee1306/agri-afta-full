@@ -61,6 +61,12 @@ class Metrics:
     pred_pos_rate: float
 
 
+def _resolve_path(path: str) -> str:
+    if os.path.isabs(path):
+        return path
+    return os.path.join(REPO_ROOT, path)
+
+
 def _compute_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> Metrics:
     y_true = np.asarray(y_true, dtype=int)
     y_pred = np.asarray(y_pred, dtype=int)
@@ -99,7 +105,7 @@ def _print_metrics(title: str, m: Metrics):
 
 
 def _load_df(path: str, max_rows: Optional[int]) -> pd.DataFrame:
-    df = pd.read_csv(path, nrows=max_rows)
+    df = pd.read_csv(_resolve_path(path), nrows=max_rows)
     df = df.replace([np.inf, -np.inf], np.nan)
     return df
 
@@ -114,17 +120,16 @@ def _afta_predict(df: pd.DataFrame, model_path: str) -> np.ndarray:
     from backend.model_loader import ModelWrapper
 
     X = df[AFTA_FEATURES_ORDER].fillna(0).values.astype(np.float32)
-    resolved = model_path
-    if not os.path.isabs(resolved):
-        resolved = os.path.join(REPO_ROOT, resolved)
-    model = ModelWrapper(resolved)
+    model = ModelWrapper(_resolve_path(model_path))
     probs = np.asarray(model.predict_proba(X), dtype=np.float32).ravel()
-    return (probs >= 0.5).astype(int)
+    thr = float(getattr(model, "threshold", 0.5))
+    return (probs >= thr).astype(int)
 
 
 def _stage_rf_predict(df_stage: pd.DataFrame, stage_models_dir: str) -> np.ndarray:
     import joblib
 
+    stage_models_dir = _resolve_path(stage_models_dir)
     preds = np.zeros(len(df_stage), dtype=int)
     for stage in df_stage["growth_stage"].dropna().unique():
         path = f"{stage_models_dir}/{stage}_model.pkl"

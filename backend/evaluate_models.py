@@ -5,13 +5,15 @@ from pathlib import Path
 
 import pandas as pd
 import matplotlib.pyplot as plt
-import seaborn as sns
 import numpy as np
 import os
+try:
+    import seaborn as sns
+except ModuleNotFoundError:
+    sns = None
 
 from sklearn.metrics import accuracy_score, confusion_matrix
 from backend.model_loader import ModelWrapper
-from backend.utils.sensor_normalizer import normalize
 
 print("Evaluation script started...")
 
@@ -50,21 +52,18 @@ print("Stage AFTA models loaded.")
 # -----------------------------------------
 # PREPARE BATCH INPUT FOR AFTA
 # -----------------------------------------
-sensor_matrix = df[
-    ["soil_moisture", "temperature",
-     "soil_humidity", "air_temp",
-     "air_humidity", "rainfall",
-     "ph", "nitrogen",
-     "phosphorus", "potassium",
-     "hour", "dayofyear"]
-].values
-
-# Normalize all rows
-X_batch = np.array([normalize(row) for row in sensor_matrix])
+# final_model.pkl was trained with this raw feature order.
+X_batch = df[
+    ["soil_moisture", "temperature", "soil_humidity",
+     "hour", "dayofyear", "air_temp",
+     "air_humidity", "rainfall", "ph",
+     "nitrogen", "phosphorus", "potassium"]
+].values.astype(np.float32)
 
 # Batch predict AFTA (main model)
 afta_probs = model.predict_proba(X_batch)
-afta_preds_batch = [int(p >= 0.5) for p in afta_probs]
+afta_threshold = float(getattr(model, "threshold", 0.5))
+afta_preds_batch = [int(p >= afta_threshold) for p in afta_probs]
 
 print("Main AFTA predictions completed.")
 
@@ -147,7 +146,16 @@ plt.close()
 cm = confusion_matrix(true_labels, ensemble_preds)
 
 plt.figure()
-sns.heatmap(cm, annot=True, fmt="d")
+if sns is not None:
+    sns.heatmap(cm, annot=True, fmt="d")
+else:
+    plt.imshow(cm, cmap="Blues")
+    plt.colorbar()
+    for i in range(cm.shape[0]):
+        for j in range(cm.shape[1]):
+            plt.text(j, i, str(cm[i, j]), ha="center", va="center", color="black")
+    plt.xticks(range(cm.shape[1]))
+    plt.yticks(range(cm.shape[0]))
 plt.title("Ensemble Confusion Matrix")
 plt.xlabel("Predicted")
 plt.ylabel("Actual")

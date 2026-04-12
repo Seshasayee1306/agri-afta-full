@@ -1,0 +1,13 @@
+growth_stage,model,f1,balanced_accuracy,rows
+germination,stage,1.0,1.0,5
+germination,main,0.6666666666666666,0.75,5
+germination,ensemble,1.0,1.0,5
+vegetative,stage,0.0,0.5,8
+vegetative,main,0.0,0.5,8
+vegetative,ensemble,0.0,0.5,8
+flowering,stage,1.0,1.0,6
+flowering,main,0.0,0.5,6
+flowering,ensemble,1.0,1.0,6
+harvest,stage,0.3212682785579847,0.48728415898728084,20063
+harvest,main,0.11542266681323514,0.501399476590993,20063
+harvest,ensemble,0.32929365363929725,0.49003703072569993,20063
