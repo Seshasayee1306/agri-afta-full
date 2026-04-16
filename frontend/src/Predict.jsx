@@ -2,6 +2,23 @@ import React, { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+function toNumberOrNull(value) {
+  const text = String(value ?? "").trim();
+  if (!text) return null;
+  const numeric = Number(text);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+function validateRange(name, value, lo, hi) {
+  if (typeof value !== "number" || Number.isNaN(value)) {
+    return `${name} must be a valid number`;
+  }
+  if (value < lo || value > hi) {
+    return `${name} must be between ${lo} and ${hi}`;
+  }
+  return null;
+}
+
 export default function Predict() {
   const [sowingDate, setSowingDate] = useState("");
   const [currentDate, setCurrentDate] = useState("");
@@ -52,14 +69,46 @@ export default function Predict() {
     const payload = {
       sowing_date: sowingDate,
       current_date: currentDate,
-      soil_moisture: Number(soilMoisture),
-      temperature: Number(temperature),
-      humidity: Number(humidity),
-      ph: Number(ph),
-      region,
-      crop_type: cropType,
-      soil_type: soilType,
+      soil_moisture: toNumberOrNull(soilMoisture),
+      temperature: toNumberOrNull(temperature),
+      humidity: toNumberOrNull(humidity),
+      ph: toNumberOrNull(ph),
+      region: String(region || "").trim(),
+      crop_type: String(cropType || "").trim(),
+      soil_type: String(soilType || "").trim(),
     };
+
+    if (!payload.sowing_date || !payload.current_date) {
+      setResult({ error: "Sowing Date and Current Date are required." });
+      return;
+    }
+    if (!payload.region || !payload.crop_type || !payload.soil_type) {
+      setResult({ error: "Region, Crop Type, and Soil Type are required." });
+      return;
+    }
+
+    const sowingDateObj = new Date(`${payload.sowing_date}T00:00:00`);
+    const currentDateObj = new Date(`${payload.current_date}T00:00:00`);
+    if (Number.isNaN(sowingDateObj.getTime()) || Number.isNaN(currentDateObj.getTime())) {
+      setResult({ error: "Invalid date format. Use valid dates." });
+      return;
+    }
+    if (currentDateObj < sowingDateObj) {
+      setResult({ error: "Current Date must be on or after Sowing Date." });
+      return;
+    }
+
+    const fieldChecks = [
+      validateRange("Soil Moisture", payload.soil_moisture, 0, 100),
+      validateRange("Temperature", payload.temperature, -20, 70),
+      validateRange("Humidity", payload.humidity, 0, 100),
+      validateRange("pH", payload.ph, 0, 14),
+    ].filter(Boolean);
+
+    if (fieldChecks.length > 0) {
+      setResult({ error: fieldChecks[0] });
+      return;
+    }
 
     setPredictLoading(true);
     try {
@@ -82,6 +131,7 @@ export default function Predict() {
       try {
         localStorage.setItem("last_predict_payload", JSON.stringify(payload));
         localStorage.setItem("last_predict_result", JSON.stringify(data));
+        window.dispatchEvent(new Event("agri-predict-updated"));
       } catch {
         // ignore storage errors
       }

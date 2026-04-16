@@ -1,0 +1,51 @@
+.compare-grid {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.compare-column {
+  border: 1px solid #dce8ee;
+  border-radius: 14px;
+  background: #fdfefe;
+  padding: 14px;
+}
+
+.compare-column h4 {
+  margin: 0;
+  font-family: "Sora", "Avenir Next", "Segoe UI", sans-serif;
+}
+
+.compare-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.challenger-fixed-badge {
+  margin: 0;
+  border-radius: 999px;
+  border: 1px solid #ccdde4;
+  background: #f2f9fc;
+  color: #123447;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 7px 12px;
+}
+
+.compare-reason {
+  grid-column: 1 / -1;
+}
+
+.compare-alert {
+  border-color: #f2d4a8;
+  background: #fff8ec;
+}
+
+@media (max-width: 900px) {
+  .compare-grid {
+    grid-template-columns: 1fr;
+  }
+}

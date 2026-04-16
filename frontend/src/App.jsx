@@ -2,6 +2,7 @@ import React from "react";
 import { BrowserRouter, NavLink, Route, Routes } from "react-router-dom";
 import Predict from "./Predict";
 import TestLLM from "./TestLLM";
+import ComparePage from "./ComparePage";
 
 export default function App() {
   return (
@@ -39,6 +40,14 @@ export default function App() {
             >
               LLM Inspector
             </NavLink>
+            <NavLink
+              to="/compare"
+              className={({ isActive }) =>
+                `topnav-link ${isActive ? "topnav-link-active" : ""}`
+              }
+            >
+              Model Compare
+            </NavLink>
           </nav>
         </header>
 
@@ -46,6 +55,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Predict />} />
             <Route path="/llm" element={<TestLLM />} />
+            <Route path="/compare" element={<ComparePage />} />
           </Routes>
         </main>
       </div>

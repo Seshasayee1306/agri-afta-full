@@ -1,0 +1,39 @@
+{
+  "catboost": {
+    "validation_auc": 1.0,
+    "validation_accuracy": 1.0,
+    "rows_train": 80000,
+    "rows_val": 20000
+  },
+  "xgboost": {
+    "validation_auc": 1.0,
+    "validation_accuracy": 1.0,
+    "rows_train": 80000,
+    "rows_val": 20000
+  },
+  "random_forest": {
+    "validation_auc": 1.0,
+    "validation_accuracy": 1.0,
+    "rows_train": 80000,
+    "rows_val": 20000
+  },
+  "meta": {
+    "feature_order": [
+      "soil_moisture",
+      "temperature",
+      "soil_humidity",
+      "hour",
+      "dayofyear",
+      "air_temp",
+      "air_humidity",
+      "rainfall",
+      "ph",
+      "nitrogen",
+      "phosphorus",
+      "potassium"
+    ],
+    "target": "needs_water",
+    "dataset_path": "/Users/sankarm/Desktop/agri-afta-full/dataset/irrigation_stage_dataset.csv",
+    "generated_at_utc": "2026-04-15T12:18:09.075098+00:00"
+  }
+}

@@ -2,6 +2,9 @@ from backend.stage_engine import calculate_days_after_sowing, identify_growth_st
 from backend.stage_rf_engine import predict_stage
 import os
 import numpy as np
+import json
+import joblib
+import pandas as pd
 from flask import Flask, request, jsonify, Response
 from flask_cors import CORS
 from prometheus_client import Counter, Histogram, generate_latest
@@ -59,6 +62,103 @@ AFTA_LOCAL_WEIGHT = float(os.getenv("AFTA_LOCAL_WEIGHT", "0.55"))
 AFTA_LOW_THRESHOLD = float(os.getenv("AFTA_LOW_THRESHOLD", "0.42"))
 AFTA_HIGH_THRESHOLD = float(os.getenv("AFTA_HIGH_THRESHOLD", "0.58"))
 AFTA_TIEBREAK_THRESHOLD = float(os.getenv("AFTA_TIEBREAK_THRESHOLD", "0.48"))
+CHALLENGER_VALIDATION_AUC = float(os.getenv("CHALLENGER_VALIDATION_AUC", "0.84"))
+CHALLENGER_MODEL_KIND_ENV = os.getenv("AFTA_CHALLENGER_KIND")
+CHALLENGER_MODEL_KIND = (CHALLENGER_MODEL_KIND_ENV or "").strip().lower()
+CHALLENGER_MODEL_FILES = {
+    "random_forest": "random_forest_model.pkl",
+    "xgboost": "xgboost_model.pkl",
+    "catboost": "catboost_model.pkl",
+}
+CHALLENGER_XGB_RF_ENSEMBLE_KIND = "xgb_rf_ensemble"
+CHALLENGER_MODEL_LABELS = {
+    "random_forest": "RandomForest Challenger Model",
+    "xgboost": "XGBoost Challenger Model",
+    "catboost": "CatBoost Challenger Model",
+    CHALLENGER_XGB_RF_ENSEMBLE_KIND: "XGBoost + RandomForest Ensemble",
+}
+CHALLENGER_VIRTUAL_MODEL_KINDS = {CHALLENGER_XGB_RF_ENSEMBLE_KIND}
+CHALLENGER_SUPPORTED_MODEL_KINDS = set(CHALLENGER_MODEL_FILES.keys()) | CHALLENGER_VIRTUAL_MODEL_KINDS
+CHALLENGER_KIND_TIEBREAK_PRIORITY = {
+    # Keep XGBoost preference during ties for stability with existing deployments.
+    "xgboost": 3,
+    "catboost": 2,
+    "random_forest": 1,
+}
+
+# Validation guardrails for real-world input quality.
+STRICT_CONTEXT_MATCH = os.getenv("AFTA_STRICT_CONTEXT_MATCH", "1").strip().lower() not in ("0", "false", "no")
+MAX_DAYS_AFTER_SOWING = int(os.getenv("AFTA_MAX_DAYS_AFTER_SOWING", "3650"))
+
+CORE_INPUT_RANGES = {
+    "soil_moisture": (0.0, 100.0),
+    "temperature": (-20.0, 70.0),
+    "humidity": (0.0, 100.0),
+    "ph": (0.0, 14.0),
+    "soil_humidity": (0.0, 100.0),
+    "air_temp": (-20.0, 70.0),
+    "air_humidity": (0.0, 100.0),
+    "rainfall": (0.0, 500.0),
+    "nitrogen": (0.0, 300.0),
+    "phosphorus": (0.0, 300.0),
+    "potassium": (0.0, 300.0),
+    "ndvi": (-1.0, 1.0),
+}
+
+SENSOR_FEATURE_RANGES = [
+    ("soil_moisture", 0.0, 100.0),
+    ("temperature", -20.0, 70.0),
+    ("soil_humidity", 0.0, 100.0),
+    ("hour", 0.0, 23.0),
+    ("dayofyear", 1.0, 366.0),
+    ("air_temp", -20.0, 70.0),
+    ("air_humidity", 0.0, 100.0),
+    ("rainfall", 0.0, 500.0),
+    ("ph", 0.0, 14.0),
+    ("nitrogen", 0.0, 300.0),
+    ("phosphorus", 0.0, 300.0),
+    ("potassium", 0.0, 300.0),
+]
+
+
+def _ensure_in_range(name, value, lo, hi):
+    if value is None:
+        return
+    if not np.isfinite(value):
+        raise ValueError(f"Invalid numeric value for '{name}'")
+    if value < lo or value > hi:
+        raise ValueError(f"'{name}' out of range [{lo}, {hi}]")
+
+
+def _validate_required_text(name, value):
+    text = str(value).strip() if value is not None else ""
+    if not text:
+        raise ValueError(f"Missing required context input: {name}")
+    if text.lower() in ("unknown", "none", "na", "n/a"):
+        raise ValueError(f"'{name}' cannot be placeholder text")
+    return text
+
+
+def _validate_dates_or_raise(sowing_date, current_date):
+    try:
+        sowing_dt = datetime.strptime(str(sowing_date), "%Y-%m-%d")
+        current_dt = datetime.strptime(str(current_date), "%Y-%m-%d")
+    except Exception:
+        raise ValueError("Invalid date format. Use YYYY-MM-DD for sowing_date and current_date")
+
+    if current_dt < sowing_dt:
+        raise ValueError("current_date must be on or after sowing_date")
+    days_after_sowing = (current_dt - sowing_dt).days
+    if days_after_sowing > MAX_DAYS_AFTER_SOWING:
+        raise ValueError(f"days after sowing is too large (>{MAX_DAYS_AFTER_SOWING})")
+    return days_after_sowing
+
+
+def _validate_sensor_features(sensor_features):
+    if len(sensor_features) != 12:
+        raise ValueError(f"Expected exactly 12 sensor features, received {len(sensor_features)}")
+    for idx, (name, lo, hi) in enumerate(SENSOR_FEATURE_RANGES):
+        _ensure_in_range(name, float(sensor_features[idx]), lo, hi)
 
 
 def _build_local_stage_features(feature_dict, hour, dayofyear):
@@ -93,6 +193,7 @@ def _compute_full_intelligent_from_json(json_data):
     current_date = json_data.get("current_date")
     if not sowing_date or not current_date:
         raise ValueError("Missing sowing_date or current_date")
+    _validate_dates_or_raise(sowing_date, current_date)
 
     days = calculate_days_after_sowing(sowing_date, current_date)
     stage = identify_growth_stage(days)
@@ -103,12 +204,19 @@ def _compute_full_intelligent_from_json(json_data):
     ph = _to_float("ph", json_data.get("ph"))
     if soil_moisture is None or temperature is None or humidity is None or ph is None:
         raise ValueError("Missing required numeric inputs: soil_moisture, temperature, humidity, ph")
+    _ensure_in_range("soil_moisture", float(soil_moisture), *CORE_INPUT_RANGES["soil_moisture"])
+    _ensure_in_range("temperature", float(temperature), *CORE_INPUT_RANGES["temperature"])
+    _ensure_in_range("humidity", float(humidity), *CORE_INPUT_RANGES["humidity"])
+    _ensure_in_range("ph", float(ph), *CORE_INPUT_RANGES["ph"])
 
     region = json_data.get("region") or (json_data.get("context", {}) or {}).get("region")
     crop_type = json_data.get("crop_type") or (json_data.get("context", {}) or {}).get("crop_type")
     soil_type = json_data.get("soil_type")
     if not region or not crop_type or soil_type is None or (isinstance(soil_type, str) and not soil_type.strip()):
         raise ValueError("Missing required context inputs: region, crop_type, soil_type")
+    region = _validate_required_text("region", region)
+    crop_type = _validate_required_text("crop_type", crop_type)
+    soil_type = _validate_required_text("soil_type", soil_type)
 
     med = get_median_defaults()
 
@@ -124,29 +232,51 @@ def _compute_full_intelligent_from_json(json_data):
     )
 
     rainfall_override = _to_float("rainfall", json_data.get("rainfall"))
+    _ensure_in_range("rainfall", rainfall_override, *CORE_INPUT_RANGES["rainfall"])
     rainfall = float(rainfall_override) if rainfall_override is not None else float(derived.rainfall)
+    _ensure_in_range("rainfall", rainfall, *CORE_INPUT_RANGES["rainfall"])
 
     try:
         ndvi_val = (json_data.get("context", {}) or {}).get("ndvi", derived.ndvi)
         ndvi = float(ndvi_val)
     except Exception:
         ndvi = float(derived.ndvi)
+    _ensure_in_range("ndvi", ndvi, *CORE_INPUT_RANGES["ndvi"])
     disease_status = (json_data.get("context", {}) or {}).get("disease_status", derived.disease_status)
 
     air_humidity_override = _to_float("air_humidity", json_data.get("air_humidity"))
+    _ensure_in_range("air_humidity", air_humidity_override, *CORE_INPUT_RANGES["air_humidity"])
     air_humidity = float(air_humidity_override) if air_humidity_override is not None else float(humidity)
+    _ensure_in_range("air_humidity", air_humidity, *CORE_INPUT_RANGES["air_humidity"])
+
+    soil_humidity_override = _to_float("soil_humidity", json_data.get("soil_humidity"))
+    air_temp_override = _to_float("air_temp", json_data.get("air_temp"))
+    nitrogen_override = _to_float("nitrogen", json_data.get("nitrogen"))
+    phosphorus_override = _to_float("phosphorus", json_data.get("phosphorus"))
+    potassium_override = _to_float("potassium", json_data.get("potassium"))
+    _ensure_in_range("soil_humidity", soil_humidity_override, *CORE_INPUT_RANGES["soil_humidity"])
+    _ensure_in_range("air_temp", air_temp_override, *CORE_INPUT_RANGES["air_temp"])
+    _ensure_in_range("nitrogen", nitrogen_override, *CORE_INPUT_RANGES["nitrogen"])
+    _ensure_in_range("phosphorus", phosphorus_override, *CORE_INPUT_RANGES["phosphorus"])
+    _ensure_in_range("potassium", potassium_override, *CORE_INPUT_RANGES["potassium"])
+
+    if STRICT_CONTEXT_MATCH:
+        if derived.match_notes.get("region_match") == "unknown":
+            raise ValueError("Unknown region. Use a valid region name from training context")
+        if derived.match_notes.get("crop_match") == "unknown":
+            raise ValueError("Unknown crop_type. Use a valid crop type from training context")
 
     feature_dict = {
         "soil_moisture": float(soil_moisture),
         "temperature": float(temperature),
-        "soil_humidity": float(json_data.get("soil_humidity") or med["soil_humidity"]),
-        "air_temp": float(json_data.get("air_temp") or temperature),
+        "soil_humidity": float(soil_humidity_override) if soil_humidity_override is not None else float(med["soil_humidity"]),
+        "air_temp": float(air_temp_override) if air_temp_override is not None else float(temperature),
         "air_humidity": air_humidity,
         "rainfall": float(rainfall),
         "ph": float(ph),
-        "nitrogen": float(json_data.get("nitrogen") or med["nitrogen"]),
-        "phosphorus": float(json_data.get("phosphorus") or med["phosphorus"]),
-        "potassium": float(json_data.get("potassium") or med["potassium"]),
+        "nitrogen": float(nitrogen_override) if nitrogen_override is not None else float(med["nitrogen"]),
+        "phosphorus": float(phosphorus_override) if phosphorus_override is not None else float(med["phosphorus"]),
+        "potassium": float(potassium_override) if potassium_override is not None else float(med["potassium"]),
     }
     stage_prediction = predict_stage(stage, feature_dict)
 
@@ -178,6 +308,8 @@ def _compute_full_intelligent_from_json(json_data):
             float(feature_dict["phosphorus"]), # phosphorus
             float(feature_dict["potassium"]),  # potassium
         ]
+
+    _validate_sensor_features([float(x) for x in sensor_features])
 
     X = np.asarray(sensor_features, dtype=np.float32).reshape(1, -1)
     global_afta_proba = float(model.predict_proba(X)[0])
@@ -353,6 +485,7 @@ def _compute_hybrid_from_edge_afta(json_data):
     current_date = json_data.get("current_date")
     if not sowing_date or not current_date:
         raise ValueError("Missing sowing_date or current_date")
+    _validate_dates_or_raise(sowing_date, current_date)
 
     try:
         afta_prediction = int(json_data.get("afta_prediction"))
@@ -370,12 +503,19 @@ def _compute_hybrid_from_edge_afta(json_data):
     ph = _to_float("ph", json_data.get("ph"))
     if soil_moisture is None or temperature is None or humidity is None or ph is None:
         raise ValueError("Missing required numeric inputs: soil_moisture, temperature, humidity, ph")
+    _ensure_in_range("soil_moisture", float(soil_moisture), *CORE_INPUT_RANGES["soil_moisture"])
+    _ensure_in_range("temperature", float(temperature), *CORE_INPUT_RANGES["temperature"])
+    _ensure_in_range("humidity", float(humidity), *CORE_INPUT_RANGES["humidity"])
+    _ensure_in_range("ph", float(ph), *CORE_INPUT_RANGES["ph"])
 
     region = json_data.get("region") or (json_data.get("context", {}) or {}).get("region")
     crop_type = json_data.get("crop_type") or (json_data.get("context", {}) or {}).get("crop_type")
     soil_type = json_data.get("soil_type")
     if not region or not crop_type or soil_type is None or (isinstance(soil_type, str) and not soil_type.strip()):
         raise ValueError("Missing required context inputs: region, crop_type, soil_type")
+    region = _validate_required_text("region", region)
+    crop_type = _validate_required_text("crop_type", crop_type)
+    soil_type = _validate_required_text("soil_type", soil_type)
 
     med = get_median_defaults()
     derived = get_context_lookup().derive(
@@ -390,29 +530,51 @@ def _compute_hybrid_from_edge_afta(json_data):
     )
 
     rainfall_override = _to_float("rainfall", json_data.get("rainfall"))
+    _ensure_in_range("rainfall", rainfall_override, *CORE_INPUT_RANGES["rainfall"])
     rainfall = float(rainfall_override) if rainfall_override is not None else float(derived.rainfall)
+    _ensure_in_range("rainfall", rainfall, *CORE_INPUT_RANGES["rainfall"])
 
     try:
         ndvi_val = (json_data.get("context", {}) or {}).get("ndvi", derived.ndvi)
         ndvi = float(ndvi_val)
     except Exception:
         ndvi = float(derived.ndvi)
+    _ensure_in_range("ndvi", ndvi, *CORE_INPUT_RANGES["ndvi"])
     disease_status = (json_data.get("context", {}) or {}).get("disease_status", derived.disease_status)
 
     air_humidity_override = _to_float("air_humidity", json_data.get("air_humidity"))
+    _ensure_in_range("air_humidity", air_humidity_override, *CORE_INPUT_RANGES["air_humidity"])
     air_humidity = float(air_humidity_override) if air_humidity_override is not None else float(humidity)
+    _ensure_in_range("air_humidity", air_humidity, *CORE_INPUT_RANGES["air_humidity"])
+
+    soil_humidity_override = _to_float("soil_humidity", json_data.get("soil_humidity"))
+    air_temp_override = _to_float("air_temp", json_data.get("air_temp"))
+    nitrogen_override = _to_float("nitrogen", json_data.get("nitrogen"))
+    phosphorus_override = _to_float("phosphorus", json_data.get("phosphorus"))
+    potassium_override = _to_float("potassium", json_data.get("potassium"))
+    _ensure_in_range("soil_humidity", soil_humidity_override, *CORE_INPUT_RANGES["soil_humidity"])
+    _ensure_in_range("air_temp", air_temp_override, *CORE_INPUT_RANGES["air_temp"])
+    _ensure_in_range("nitrogen", nitrogen_override, *CORE_INPUT_RANGES["nitrogen"])
+    _ensure_in_range("phosphorus", phosphorus_override, *CORE_INPUT_RANGES["phosphorus"])
+    _ensure_in_range("potassium", potassium_override, *CORE_INPUT_RANGES["potassium"])
+
+    if STRICT_CONTEXT_MATCH:
+        if derived.match_notes.get("region_match") == "unknown":
+            raise ValueError("Unknown region. Use a valid region name from training context")
+        if derived.match_notes.get("crop_match") == "unknown":
+            raise ValueError("Unknown crop_type. Use a valid crop type from training context")
 
     feature_dict = {
         "soil_moisture": float(soil_moisture),
         "temperature": float(temperature),
-        "soil_humidity": float(json_data.get("soil_humidity") or med["soil_humidity"]),
-        "air_temp": float(json_data.get("air_temp") or temperature),
+        "soil_humidity": float(soil_humidity_override) if soil_humidity_override is not None else float(med["soil_humidity"]),
+        "air_temp": float(air_temp_override) if air_temp_override is not None else float(temperature),
         "air_humidity": air_humidity,
         "rainfall": float(rainfall),
         "ph": float(ph),
-        "nitrogen": float(json_data.get("nitrogen") or med["nitrogen"]),
-        "phosphorus": float(json_data.get("phosphorus") or med["phosphorus"]),
-        "potassium": float(json_data.get("potassium") or med["potassium"]),
+        "nitrogen": float(nitrogen_override) if nitrogen_override is not None else float(med["nitrogen"]),
+        "phosphorus": float(phosphorus_override) if phosphorus_override is not None else float(med["phosphorus"]),
+        "potassium": float(potassium_override) if potassium_override is not None else float(med["potassium"]),
     }
     stage_prediction = int(predict_stage(stage, feature_dict))
 
@@ -574,6 +736,119 @@ MODEL_PATH = (
     or os.path.join(BASE_DIR, "final_model.pkl")
 )
 model = ModelWrapper(MODEL_PATH)
+
+# Preferred challenger: a different model family artifact from challenger_models/.
+CHALLENGER_MODELS_DIR = (
+    os.getenv("AFTA_CHALLENGER_MODELS_DIR")
+    or ("/models/challenger_models" if os.path.exists("/models/challenger_models") else None)
+    or os.path.join(BASE_DIR, "challenger_models")
+)
+
+CHALLENGER_METRICS_PATH = os.path.join(CHALLENGER_MODELS_DIR, "metrics.json")
+challenger_metrics = {}
+if os.path.exists(CHALLENGER_METRICS_PATH):
+    try:
+        with open(CHALLENGER_METRICS_PATH, "r", encoding="utf-8") as f:
+            loaded_metrics = json.load(f)
+            if isinstance(loaded_metrics, dict):
+                challenger_metrics = loaded_metrics
+    except Exception as e:
+        print("[AFTA] challenger metrics load failed:", e)
+
+if CHALLENGER_MODEL_KIND and CHALLENGER_MODEL_KIND not in CHALLENGER_SUPPORTED_MODEL_KINDS:
+    print(f"[AFTA] invalid challenger kind '{CHALLENGER_MODEL_KIND}', ignoring override and auto-selecting")
+    CHALLENGER_MODEL_KIND = ""
+
+
+def _load_challenger_artifacts():
+    artifacts = {}
+    for kind, fname in CHALLENGER_MODEL_FILES.items():
+        path = os.path.join(CHALLENGER_MODELS_DIR, fname)
+        if not os.path.exists(path):
+            continue
+        try:
+            artifacts[kind] = joblib.load(path)
+            print("[AFTA] loaded challenger artifact:", kind, path)
+        except Exception as e:
+            print(f"[AFTA] challenger artifact load failed for {kind}:", e)
+    return artifacts
+
+
+challenger_artifacts = _load_challenger_artifacts()
+
+
+def _safe_metric(metric_entry, key):
+    try:
+        return float(metric_entry.get(key))
+    except Exception:
+        return float("-inf")
+
+
+def _select_best_challenger_kind(available_kinds):
+    if not available_kinds:
+        return None
+
+    ranked = []
+    for kind in available_kinds:
+        metric_entry = challenger_metrics.get(kind, {})
+        auc = _safe_metric(metric_entry, "validation_auc")
+        acc = _safe_metric(metric_entry, "validation_accuracy")
+        tiebreak = CHALLENGER_KIND_TIEBREAK_PRIORITY.get(kind, 0)
+        ranked.append((auc, acc, tiebreak, kind))
+
+    ranked.sort(reverse=True)
+    return ranked[0][3]
+
+
+def _is_challenger_kind_available(kind):
+    if kind in challenger_artifacts:
+        return True
+    if kind == CHALLENGER_XGB_RF_ENSEMBLE_KIND:
+        return "xgboost" in challenger_artifacts and "random_forest" in challenger_artifacts
+    return False
+
+
+def _available_challenger_kinds():
+    available = sorted(challenger_artifacts.keys())
+    if _is_challenger_kind_available(CHALLENGER_XGB_RF_ENSEMBLE_KIND):
+        available.append(CHALLENGER_XGB_RF_ENSEMBLE_KIND)
+    return sorted(available)
+
+
+if CHALLENGER_MODEL_KIND:
+    if not _is_challenger_kind_available(CHALLENGER_MODEL_KIND):
+        best_kind = _select_best_challenger_kind(list(challenger_artifacts.keys()))
+        if best_kind is not None:
+            print(
+                f"[AFTA] requested challenger '{CHALLENGER_MODEL_KIND}' not available; "
+                f"using best available '{best_kind}'"
+            )
+            CHALLENGER_MODEL_KIND = best_kind
+        else:
+            CHALLENGER_MODEL_KIND = "xgboost"
+else:
+    best_kind = _select_best_challenger_kind(list(challenger_artifacts.keys()))
+    CHALLENGER_MODEL_KIND = best_kind or "xgboost"
+    print(f"[AFTA] auto-selected challenger model: {CHALLENGER_MODEL_KIND}")
+
+CHALLENGER_MODEL_PATH = (
+    os.getenv("AFTA_CHALLENGER_MODEL_PATH")
+    or (
+        "/models/final_model_tuned.pkl"
+        if os.path.exists("/models/final_model_tuned.pkl")
+        else None
+    )
+    or os.path.join(BASE_DIR, "final_model_tuned.pkl")
+)
+challenger_model = None
+if CHALLENGER_MODEL_PATH and os.path.exists(CHALLENGER_MODEL_PATH):
+    try:
+        challenger_model = ModelWrapper(CHALLENGER_MODEL_PATH)
+        print("[AFTA] loaded legacy challenger model:", CHALLENGER_MODEL_PATH)
+    except Exception as e:
+        print("[AFTA] legacy challenger model load failed:", e)
+else:
+    print("[AFTA] legacy challenger model unavailable:", CHALLENGER_MODEL_PATH)
 
 LOCAL_STAGE_AFTA_DIR = os.path.join(BASE_DIR, "stage_afta_models")
 
@@ -1109,6 +1384,11 @@ def predict_with_context():
             "received": len(sensor_features)
         }), 400
 
+    try:
+        _validate_sensor_features([float(x) for x in sensor_features])
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
     X = normalize(sensor_features).reshape(1, -1)
     sensor_prediction = int(model.predict(X))
 
@@ -1151,6 +1431,241 @@ def predict_with_context():
             else "No irrigation required"
         )
     })
+
+
+def _extract_probability(predicted):
+    arr = np.asarray(predicted, dtype=np.float64)
+    if arr.ndim == 2:
+        if arr.shape[1] >= 2:
+            probability = float(arr[0, 1])
+        else:
+            probability = float(arr[0, 0])
+    else:
+        flat = arr.ravel()
+        if flat.size == 0:
+            raise ValueError("Empty probability output")
+        probability = float(flat[0])
+    return float(np.clip(probability, 0.0, 1.0))
+
+
+def _resolve_challenger_kind(requested_kind):
+    if isinstance(requested_kind, str):
+        candidate = requested_kind.strip().lower()
+        if _is_challenger_kind_available(candidate):
+            return candidate
+    if _is_challenger_kind_available(CHALLENGER_MODEL_KIND):
+        return CHALLENGER_MODEL_KIND
+    best_kind = _select_best_challenger_kind(list(challenger_artifacts.keys()))
+    if best_kind is not None:
+        return best_kind
+    return "xgboost"
+
+
+def _predict_single_challenger_probability(kind, sensor_features):
+    artifact = challenger_artifacts.get(kind)
+    if artifact is None:
+        return None
+
+    model_obj = artifact
+    imputer = None
+    feature_order = AFTA_FEATURES_ORDER
+
+    if isinstance(artifact, dict):
+        model_obj = artifact.get("model")
+        imputer = artifact.get("imputer")
+        feature_order = artifact.get("feature_order") or AFTA_FEATURES_ORDER
+
+    if model_obj is None or not hasattr(model_obj, "predict_proba"):
+        return None
+
+    if not isinstance(feature_order, list) or len(feature_order) != len(sensor_features):
+        feature_order = AFTA_FEATURES_ORDER
+
+    X_df = pd.DataFrame([sensor_features], columns=feature_order)
+    X_input = imputer.transform(X_df) if imputer is not None else X_df
+    return _extract_probability(model_obj.predict_proba(X_input))
+
+
+def _get_validation_auc_for_kind(kind):
+    metric_entry = challenger_metrics.get(kind, {})
+    auc = metric_entry.get("validation_auc")
+    try:
+        return float(auc)
+    except Exception:
+        return CHALLENGER_VALIDATION_AUC
+
+
+def _predict_non_afta_challenger(sensor_features, requested_kind=None):
+    resolved_kind = _resolve_challenger_kind(requested_kind)
+    component_probabilities = None
+    if resolved_kind == CHALLENGER_XGB_RF_ENSEMBLE_KIND:
+        xgb_probability = _predict_single_challenger_probability("xgboost", sensor_features)
+        rf_probability = _predict_single_challenger_probability("random_forest", sensor_features)
+        if xgb_probability is None or rf_probability is None:
+            return None
+        probability = float(np.mean([xgb_probability, rf_probability]))
+        validation_auc = float(
+            np.mean(
+                [
+                    _get_validation_auc_for_kind("xgboost"),
+                    _get_validation_auc_for_kind("random_forest"),
+                ]
+            )
+        )
+        component_probabilities = {
+            "xgboost": round(float(xgb_probability), 4),
+            "random_forest": round(float(rf_probability), 4),
+        }
+    else:
+        probability = _predict_single_challenger_probability(resolved_kind, sensor_features)
+        if probability is None:
+            return None
+        validation_auc = _get_validation_auc_for_kind(resolved_kind)
+
+    result = {
+        "probability": probability,
+        "validation_auc": float(validation_auc),
+        "model_name": CHALLENGER_MODEL_LABELS.get(resolved_kind, "Challenger Model"),
+        "model_family": resolved_kind,
+    }
+    if component_probabilities is not None:
+        result["component_probabilities"] = component_probabilities
+    return result
+
+
+def _apply_challenger_safety_override(sensor_features, probability):
+    """
+    Safety guard: zero soil humidity/moisture is treated as extreme dryness.
+    This ensures challenger output aligns with agronomic intuition for this edge case.
+    """
+    try:
+        soil_moisture = float(sensor_features[0])
+        soil_humidity = float(sensor_features[2])
+    except Exception:
+        return int(probability >= 0.5), float(probability), None
+
+    if soil_humidity <= 0.0 or soil_moisture <= 0.0:
+        adjusted_probability = max(float(probability), 0.5001)
+        override_reason = (
+            "Safety override applied: zero soil humidity or soil moisture "
+            "is treated as an irrigation-needed condition."
+        )
+        return 1, adjusted_probability, override_reason
+
+    return int(probability >= 0.5), float(probability), None
+
+
+@app.route("/predict_challenger_compare", methods=["POST"])
+@app.route("/predict_catboost_compare", methods=["POST"])
+def predict_challenger_compare():
+    json_data = request.get_json(silent=True)
+    if not json_data:
+        return jsonify({"error": "Invalid JSON payload"}), 400
+
+    sensor_features = json_data.get("sensor_features")
+    requested_kind = json_data.get("challenger_kind")
+    if not requested_kind and request.path.endswith("/predict_catboost_compare"):
+        # Backward-compatible behavior for the legacy catboost route alias.
+        requested_kind = "catboost"
+    explain_context = None
+
+    if sensor_features is None:
+        try:
+            _, explain_context = _compute_full_intelligent_from_json(json_data)
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+        sensor_features = explain_context.get("afta_sensor_features_12")
+
+    if sensor_features is None:
+        return jsonify({"error": "Missing sensor_features"}), 400
+
+    try:
+        sensor_features = [float(x) for x in sensor_features]
+    except Exception:
+        return jsonify({"error": "Invalid sensor_features array"}), 400
+
+    try:
+        _validate_sensor_features(sensor_features)
+    except ValueError as e:
+        return jsonify({"error": str(e), "received": len(sensor_features)}), 400
+
+    challenger_result = None
+    try:
+        challenger_result = _predict_non_afta_challenger(sensor_features, requested_kind=requested_kind)
+    except Exception as e:
+        print("[AFTA] non-AFTA challenger prediction failed:", e)
+
+    if challenger_result is not None:
+        probability = float(challenger_result["probability"])
+        model_name = challenger_result["model_name"]
+        model_family = challenger_result["model_family"]
+        validation_auc = float(challenger_result["validation_auc"])
+        fallback_used = False
+        fallback_source = "none"
+    else:
+        compare_model = challenger_model if challenger_model is not None else model
+        X = np.asarray(sensor_features, dtype=np.float32).reshape(1, -1)
+        probability = float(compare_model.predict_proba(X)[0])
+        model_name = "Challenger Model (Legacy AFTA)"
+        model_family = "legacy_afta"
+        validation_auc = CHALLENGER_VALIDATION_AUC
+        fallback_used = True
+        fallback_source = "legacy_tuned_afta" if challenger_model is not None else "main_model"
+
+    final_prediction, probability, safety_override_reason = _apply_challenger_safety_override(
+        sensor_features=sensor_features,
+        probability=probability,
+    )
+
+    confidence_distance = abs(probability - 0.5) * 2.0
+    if confidence_distance >= 0.7:
+        confidence_band = "High"
+    elif confidence_distance >= 0.4:
+        confidence_band = "Medium"
+    else:
+        confidence_band = "Low"
+
+    if final_prediction == 1:
+        decision_reason = (
+            "Strong irrigation risk signal from challenger model."
+            if probability >= 0.7
+            else "Moderate irrigation risk; field check is recommended."
+        )
+    else:
+        decision_reason = (
+            "Low irrigation risk signal from challenger model."
+            if probability <= 0.3
+            else "Borderline no-irrigation decision; monitor moisture trend."
+        )
+    if safety_override_reason:
+        decision_reason = safety_override_reason
+
+    response = {
+        "model_name": model_name,
+        "model_family": model_family,
+        "requested_model_family": _resolve_challenger_kind(requested_kind),
+        "available_model_families": _available_challenger_kinds(),
+        "final_prediction": int(final_prediction),
+        "prediction_text": "Irrigation Needed" if final_prediction == 1 else "No Irrigation Needed",
+        "probability": round(probability, 4),
+        "confidence_band": confidence_band,
+        "validation_auc": validation_auc,
+        "decision_reason": decision_reason,
+        "fallback_used": fallback_used,
+        "fallback_source": fallback_source,
+    }
+    if safety_override_reason:
+        response["safety_override"] = {
+            "applied": True,
+            "reason": safety_override_reason,
+        }
+
+    if explain_context and explain_context.get("context_score") is not None:
+        response["context_score"] = round(float(explain_context["context_score"]), 3)
+    if challenger_result and challenger_result.get("component_probabilities"):
+        response["component_probabilities"] = challenger_result["component_probabilities"]
+
+    return jsonify(response)
 
 # =====================================================
 # FULL INTELLIGENT STAGE + AFTA + CONTEXT

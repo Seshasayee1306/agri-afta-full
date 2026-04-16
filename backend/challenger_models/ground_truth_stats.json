@@ -1,0 +1,44 @@
+{
+  "models": {
+    "catboost": {
+      "correct": 0,
+      "model_name": "CatBoost Challenger Model",
+      "total": 0
+    },
+    "main": {
+      "correct": 2,
+      "model_name": "Main Full Intelligent Model",
+      "total": 3
+    },
+    "random_forest": {
+      "correct": 0,
+      "model_name": "RandomForest Challenger Model",
+      "total": 0
+    },
+    "xgboost": {
+      "correct": 1,
+      "model_name": "XGBoost Challenger Model",
+      "total": 3
+    }
+  },
+  "pairs": {
+    "main__catboost": {
+      "agree": 0,
+      "disagree": 0,
+      "total": 0
+    },
+    "main__random_forest": {
+      "agree": 0,
+      "disagree": 0,
+      "total": 0
+    },
+    "main__xgboost": {
+      "agree": 0,
+      "disagree": 3,
+      "total": 3
+    }
+  },
+  "samples_total": 3,
+  "updated_at_utc": "2026-04-15T13:03:37.247630+00:00",
+  "version": 1
+}
