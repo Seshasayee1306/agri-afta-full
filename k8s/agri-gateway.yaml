@@ -16,7 +16,7 @@ spec:
       - name: agri-gateway
         image: sesha1306/agri-gateway:latest
         ports:
-        - containerPort: 80
+        - containerPort: 8080
         env:
         - name: ASPNETCORE_ENVIRONMENT
           value: "Development"
@@ -31,4 +31,4 @@ spec:
     app: agri-gateway
   ports:
   - port: 80
-    targetPort: 80
+    targetPort: 8080

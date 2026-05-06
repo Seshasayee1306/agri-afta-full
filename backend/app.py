@@ -4,6 +4,8 @@ import os
 import numpy as np
 from flask import Flask, request, jsonify, Response
 from flask_cors import CORS
+from kubernetes import client, config
+from kubernetes.client.rest import ApiException
 from prometheus_client import Counter, Histogram, generate_latest
 
 # ✅ Existing imports (UNCHANGED)
@@ -17,6 +19,14 @@ from backend.context.context_lookup import get_context_lookup
 from backend.imputation_defaults import get_median_defaults
 from backend.s3_logger import make_key, put_json
 from datetime import datetime, timezone
+from backend.disease_predictor import (
+    classify_disease,
+    decode_base64_image,
+    decode_image_bytes,
+    llm_explain_disease,
+    segment_hsv_otsu,
+    to_png_base64,
+)
 
 # AFTA model feature order used by fed_afta/run_fed.py training.
 AFTA_FEATURES_ORDER = [
@@ -1048,7 +1058,11 @@ def ingest_sensor_readings():
 @app.route("/sensor_readings/latest", methods=["GET"])
 def get_latest_sensor_readings():
     if latest_sensor_readings is None:
-        return jsonify({"error": "No sensor readings received yet"}), 404
+        return jsonify({
+            "error": "No sensor readings received yet",
+            "hint": "POST JSON readings to /sensor_readings with temperature, humidity, and ph/soil_moisture fields",
+            "expected_ingest_endpoint": "/sensor_readings",
+        }), 404
     return jsonify(latest_sensor_readings)
 
 # =====================================================
@@ -1191,11 +1205,159 @@ def predict_edge_afta():
 
     return jsonify(response)
 
+
+@app.route("/predict_disease", methods=["POST"])
+def predict_disease():
+    try:
+        if "image" in request.files:
+            image_file = request.files["image"]
+            image_bytes = image_file.read()
+            if not image_bytes:
+                return jsonify({"error": "Uploaded file is empty"}), 400
+            image_rgb = decode_image_bytes(image_bytes)
+        else:
+            json_data = request.get_json(silent=True) or {}
+            image_rgb = decode_base64_image(json_data.get("image_base64"))
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
+    mask, overlay, coverage = segment_hsv_otsu(image_rgb)
+    disease_info = classify_disease(image_rgb, float(coverage))
+
+    result = {
+        **disease_info,
+        "disease_coverage_percent": round(float(coverage), 2),
+        "mask_base64": to_png_base64(mask),
+        "overlay_base64": to_png_base64(overlay),
+        "recommended_context_disease_status": disease_info["disease_class"],
+        "inference_source": "hsv_otsu_segmentation",
+    }
+    result["llm_explanation"] = llm_explain_disease(result)
+
+    return jsonify(result)
+
 from flask import send_from_directory, render_template
+
+@app.route("/retrain/request", methods=["POST"])
+def request_retrain():
+    json_data = request.get_json(silent=True) or {}
+    farmer_id = json_data.get("farmer_id", "anonymous")
+    region = json_data.get("region", "unknown")
+    reason = json_data.get("reason", "No reason provided")
+
+    print(f"[{datetime.now()}] Retrain requested by {farmer_id} in {region}: {reason}")
+
+    # 1. Log request to S3 (optional, but good for auditing)
+    try:
+        from backend.s3_logger import make_key, put_json
+        key = make_key("retrain_requests", "json")
+        put_json(key, {
+            "kind": "retrain_request",
+            "farmer_id": farmer_id,
+            "region": region,
+            "reason": reason,
+            "timestamp": datetime.now().isoformat()
+        })
+    except Exception as e:
+        print("S3 logging for retrain request failed:", e)
+
+    # 2. Trigger Kubernetes Job
+    try:
+        # Load in-cluster config or local kubeconfig
+        try:
+            config.load_incluster_config()
+        except config.ConfigException:
+            config.load_kube_config()
+
+        batch_v1 = client.BatchV1Api()
+        
+        # Define the job name with a timestamp to avoid name collisions
+        ts = datetime.now().strftime("%Y%m%d-%H%M%S")
+        job_name = f"manual-retrain-{ts}"
+
+        # Build the job spec based on the existing k8s/retrain-job.yaml
+        job = client.V1Job(
+            api_version="batch/v1",
+            kind="Job",
+            metadata=client.V1ObjectMeta(name=job_name),
+            spec=client.V1JobSpec(
+                backoff_limit=1,
+                template=client.V1PodTemplateSpec(
+                    spec=client.V1PodSpec(
+                        service_account_name="retrain-sa",
+                        restart_policy="Never",
+                        containers=[
+                            client.V1Container(
+                                name="retrain",
+                                image="sesha1306/agri-backend:latest",
+                                image_pull_policy="Always",
+                                command=["python3", "/app/backend/retrain/retrain.py"],
+                                env=[
+                                    client.V1EnvVar(name="FORCE_RETRAIN", value="1"),
+                                    # Copy S3 secrets from existing secret
+                                    client.V1EnvVar(
+                                        name="AWS_REGION",
+                                        value_from=client.V1EnvVarSource(
+                                            secret_key_ref=client.V1SecretKeySelector(
+                                                name="aws-s3-secret", key="AWS_REGION"
+                                            )
+                                        )
+                                    ),
+                                    client.V1EnvVar(
+                                        name="S3_BUCKET",
+                                        value_from=client.V1EnvVarSource(
+                                            secret_key_ref=client.V1SecretKeySelector(
+                                                name="aws-s3-secret", key="S3_BUCKET"
+                                            )
+                                        )
+                                    ),
+                                    client.V1EnvVar(
+                                        name="S3_PREFIX",
+                                        value_from=client.V1EnvVarSource(
+                                            secret_key_ref=client.V1SecretKeySelector(
+                                                name="aws-s3-secret", key="S3_PREFIX"
+                                            )
+                                        )
+                                    ),
+                                    client.V1EnvVar(
+                                        name="AWS_ACCESS_KEY_ID",
+                                        value_from=client.V1EnvVarSource(
+                                            secret_key_ref=client.V1SecretKeySelector(
+                                                name="aws-s3-secret", key="AWS_ACCESS_KEY_ID"
+                                            )
+                                        )
+                                    ),
+                                    client.V1EnvVar(
+                                        name="AWS_SECRET_ACCESS_KEY",
+                                        value_from=client.V1EnvVarSource(
+                                            secret_key_ref=client.V1SecretKeySelector(
+                                                name="aws-s3-secret", key="AWS_SECRET_ACCESS_KEY"
+                                            )
+                                        )
+                                    )
+                                ]
+                            )
+                        ]
+                    )
+                )
+            )
+        )
+
+        batch_v1.create_namespaced_job(namespace="default", body=job)
+        return jsonify({
+            "message": "Retraining job submitted successfully",
+            "job_name": job_name,
+            "status": "triggered"
+        })
+
+    except Exception as e:
+        print("Failed to trigger K8s retrain job:", e)
+        return jsonify({"error": f"Failed to trigger retraining job: {str(e)}"}), 500
+
 
 @app.route("/dashboard")
 def dashboard():
     return render_template("dashboard.html")
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8000, debug=True)
+    app.run(host="0.0.0.0", port=8000, debug=False)

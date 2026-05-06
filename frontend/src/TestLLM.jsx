@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { IRRIGATION_API_BASE_URL } from "./api/config";
 
 export default function TestLLM() {
   const [payloadText, setPayloadText] = useState(() => {
@@ -27,7 +28,7 @@ export default function TestLLM() {
 
     setLoading(true);
     try {
-      const res = await fetch("http://127.0.0.1:8000/explain", {
+      const res = await fetch(IRRIGATION_API_BASE_URL + "/explain", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

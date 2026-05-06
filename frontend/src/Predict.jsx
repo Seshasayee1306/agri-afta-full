@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { IRRIGATION_API_BASE_URL } from "./api/config";
 
 export default function Predict() {
   const [sowingDate, setSowingDate] = useState("");
@@ -23,7 +24,7 @@ export default function Predict() {
   const [sensorSyncStatus, setSensorSyncStatus] = useState("");
   const [predictLoading, setPredictLoading] = useState(false);
 
-  const baseUrl = "http://127.0.0.1:8000";
+  const baseUrl = IRRIGATION_API_BASE_URL;
 
   const fetchExplain = async (payload) => {
     setExplainLoading(true);
@@ -101,6 +102,14 @@ export default function Predict() {
       const res = await fetch(baseUrl + "/sensor_readings/latest");
       const data = await res.json();
       if (!res.ok) {
+        if (res.status === 404 && data?.error?.includes("No sensor readings")) {
+          setSensorSyncStatus(
+            "No ESP32 readings in backend yet. Verify Arduino is POSTing to " +
+              baseUrl +
+              "/sensor_readings"
+          );
+          return;
+        }
         setSensorSyncStatus(data?.error || "Failed to fetch sensor readings");
         return;
       }

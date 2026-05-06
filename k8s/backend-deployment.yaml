@@ -15,7 +15,7 @@ spec:
       initContainers:
         - name: fetch-latest-model
           image: sesha1306/agri-backend:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           command: ["python", "-m", "backend.s3_model_sync"]
           env:
             - name: AWS_REGION
@@ -60,7 +60,7 @@ spec:
       containers:
         - name: backend
           image: sesha1306/agri-backend:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           ports:
             - containerPort: 8000
           env:
@@ -119,4 +119,4 @@ spec:
   ports:
     - port: 8000
       targetPort: 8000
-  type: LoadBalancer
+  type: ClusterIP

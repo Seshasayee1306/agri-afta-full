@@ -1,0 +1,44 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: agri-ingress
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: app.1.2.3.4.nip.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: agri-frontend
+                port:
+                  number: 80
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: agri-gateway
+                port:
+                  number: 80
+    - host: backend.1.2.3.4.nip.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: agri-backend
+                port:
+                  number: 8000
+    - host: disease.1.2.3.4.nip.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: disease-service
+                port:
+                  number: 8010

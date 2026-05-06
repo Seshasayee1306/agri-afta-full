@@ -7,7 +7,8 @@
 
 const char* WIFI_SSID = "YOUR_WIFI_SSID";
 const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
-const char* SENSOR_ENDPOINT = "http://YOUR_BACKEND_IP:8000/sensor_readings";
+// Backend ingest endpoint reachable from ESP32 on the same LAN.
+const char* SENSOR_ENDPOINT = "http://192.168.0.101:8000/sensor_readings";
 const char* DEVICE_ID = "esp32-node-1";
 
 DHT dht(DHTPIN, DHTTYPE);
@@ -42,6 +43,8 @@ static void publishToBackend(int soilValue, int phRaw, float temperature, float 
   float phValue = convertPhRawToScale14(phRaw);
 
   HTTPClient http;
+  Serial.print("Publishing to: ");
+  Serial.println(SENSOR_ENDPOINT);
   http.begin(SENSOR_ENDPOINT);
   http.addHeader("Content-Type", "application/json");
 

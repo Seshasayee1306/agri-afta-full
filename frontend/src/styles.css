@@ -543,3 +543,13 @@ body {
     min-width: 100%;
   }
 }
+
+.disease-image {
+  width: 100%;
+  max-height: 360px;
+  object-fit: contain;
+  border-radius: 12px;
+  border: 1px solid var(--line-soft);
+  background: #f5fafb;
+  margin-top: 8px;
+}

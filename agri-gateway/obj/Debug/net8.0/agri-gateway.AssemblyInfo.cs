@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("agri-gateway")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+4c7106258479e921be827d244fb383816833f5ae")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+2095c96a50d20b6ed64c2cde65f6b4e9a73519e0")]
 [assembly: System.Reflection.AssemblyProductAttribute("agri-gateway")]
 [assembly: System.Reflection.AssemblyTitleAttribute("agri-gateway")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

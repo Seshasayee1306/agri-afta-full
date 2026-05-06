@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: disease-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: disease-service
+  template:
+    metadata:
+      labels:
+        app: disease-service
+    spec:
+      containers:
+        - name: disease-service
+          image: sesha1306/agri-disease-service:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8010
+          env:
+            - name: GROQ_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: groq-secret
+                  key: api-key
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: disease-service
+spec:
+  selector:
+    app: disease-service
+  ports:
+    - port: 8010
+      targetPort: 8010
+  type: ClusterIP

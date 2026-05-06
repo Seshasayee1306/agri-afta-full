@@ -11,4 +11,4 @@ data:
       - job_name: "agri-backend"
         metrics_path: /metrics
         static_configs:
-          - targets: ["agri-backend-svc:8000"]
+          - targets: ["agri-backend:8000"]

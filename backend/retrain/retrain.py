@@ -211,7 +211,11 @@ def run_retrain():
     print(f"Current rows: {current_rows}")
     print(f"Rows since last retrain: {new_rows}")
 
-    if new_rows < MIN_NEW_ROWS and len(df_new) == 0:
+    force_retrain = os.getenv("FORCE_RETRAIN", "0") == "1"
+    if force_retrain:
+        print("Force retrain flag detected. Proceeding regardless of new data count.")
+
+    if not force_retrain and new_rows < MIN_NEW_ROWS and len(df_new) == 0:
         print("Not enough new data. Skipping retraining.")
         return
 
