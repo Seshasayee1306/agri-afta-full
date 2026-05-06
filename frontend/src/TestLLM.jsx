@@ -34,7 +34,9 @@ export default function TestLLM() {
         body: JSON.stringify(payload),
       });
       const data = await res.json();
-      setResult(data);
+      // Defensive filter: remove SHAP/TabNet if they exist
+      const { shap_values, tabnet_masks, ...cleanData } = data;
+      setResult(cleanData);
     } catch (err) {
       console.error(err);
       setResult({ error: "Failed to fetch explanation" });

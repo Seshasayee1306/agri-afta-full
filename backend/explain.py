@@ -66,15 +66,12 @@ You are an agricultural assistant.
 Sensor readings: {raw_row}
 Prediction: {prediction_text}
 
-SHAP values: {shap_vals.tolist()}
-TabNet masks: {masks.tolist()}
-
 IMPORTANT: Your recommendation MUST be consistent with the Prediction above.
 Do not recommend irrigation if the Prediction says "No irrigation needed".
 
 Explain simply:
 1) Why the model predicted this.
-2) Top 3 most influential features.
+2) Top 3 most influential factors from the sensor readings.
 3) A clear recommendation for the farmer.
 Use simple non-technical language.
 """
@@ -93,13 +90,8 @@ Use simple non-technical language.
             print("⚠️ Groq error — using fallback:", e)
 
     # ---------- FALLBACK ----------
-    top_idx = np.argsort(-np.abs(shap_vals))[0:3]
-    feats = list(raw_row.keys())
-    important = [f"{feats[i]} is strongly influencing the decision." for i in top_idx]
-
     return (
         f"Prediction: {prediction_text}. "
-        "Key reasons: "
-        + " | ".join(important)
-        + ". Recommendation: follow the model's suggestion."
+        "The current sensor readings strongly support this decision. "
+        "Recommendation: follow the model's suggestion based on field conditions."
     )

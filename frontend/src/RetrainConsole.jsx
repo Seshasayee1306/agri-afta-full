@@ -103,10 +103,10 @@ export default function RetrainConsole() {
                 rows={5}
                 style={{
                     width: '100%',
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: '8px',
-                    color: 'white',
+                    background: '#f8fbfc',
+                    border: '1px solid #ccdde4',
+                    borderRadius: '11px',
+                    color: 'var(--text-strong)',
                     padding: '12px',
                     fontSize: '0.9rem',
                     resize: 'vertical'

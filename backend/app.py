@@ -711,8 +711,6 @@ def explain():
                 "probability": float(proba),
                 "feature_names": used_feature_names,
                 "features": [float(x) for x in features],
-                "shap_values": shap_vals[0].tolist(),
-                "tabnet_masks": masks.tolist(),
                 "llm_explanation": explanation,
                 "system_response": full_response,
             })
